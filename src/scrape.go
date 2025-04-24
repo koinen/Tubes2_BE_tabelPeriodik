@@ -1,17 +1,46 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+	"sync"
+
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gocolly/colly"
 )
 
-func findRecipe(element string) [][2]string {
-	c := colly.NewCollector()
-	found := false
-	recipe := [][2]string{}
+type Element struct {
+	Name    string      `json:"name"`
+	Tier    int         `json:"tier"`
+	Recipes [][2]string `json:"recipes"`
+}
 
-	c.OnHTML("tr", func(e *colly.HTMLElement) {
-		if found {
+func scrape() []Element {
+	c := colly.NewCollector()
+	var recipeMap []Element
+	var currentTier int
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	c.OnHTML("tr, h3", func(e *colly.HTMLElement) {
+		if e.Name == "h3" {
+			// Save the current <h3> tier title
+			tier := strings.TrimSpace(e.DOM.Find("span.mw-headline").Text())
+			if len(tier) == 0 {
+				return
+			}
+			if tier == "Starting elements" {
+				fmt.Println("Starting elements")
+				currentTier = 0
+			} else {
+				currentTier = int(tier[5] - '0')
+				if tier[6] != ' ' {
+					currentTier = currentTier*10 + int(tier[6]-'0')
+				}
+				fmt.Println("Current tier:", currentTier)
+			}
 			return
 		}
 
@@ -19,21 +48,51 @@ func findRecipe(element string) [][2]string {
 		if tds.Length() < 2 {
 			return
 		}
-
-		if element == tds.Eq(0).Find("a[title]").First().AttrOr("title", "") {
-			tds.Eq(1).Find("li").Each(func(i int, li *goquery.Selection) {
-				var ingredients []string
-				li.Find("a[title]").Each(func(j int, a *goquery.Selection) {
-					ingredients = append(ingredients, a.AttrOr("title", ""))
-				})
-				if len(ingredients) == 2 {
-					recipe = append(recipe, [2]string{ingredients[0], ingredients[1]})
-				}
-			})
-			found = true
+		var elmt Element
+		if tds.Eq(0).Find("a[title]").First().AttrOr("title", "") == "Elements (Little Alchemy 1)" {
+			return
 		}
+		elmt.Name = tds.Eq(0).Find("a[title]").First().AttrOr("title", "")
+		if elmt.Name == "Time" {
+			fmt.Println("Skipping Time element")
+			return
+		}
+		elmt.Tier = currentTier
+		tds.Eq(1).Find("li").Each(func(i int, li *goquery.Selection) {
+			var ingredients [2]string
+			li.Find("a[title]").Each(func(j int, a *goquery.Selection) {
+				if a.AttrOr("title", "") == "Time" {
+					fmt.Println("Skipping Time recipe for element:", elmt.Name)
+					return
+				}
+				ingredients[j] = a.AttrOr("title", "")
+			})
+			if ingredients[0] != "" && ingredients[1] != "" {
+				elmt.Recipes = append(elmt.Recipes, [2]string{ingredients[0], ingredients[1]})
+			}
+		})
+		recipeMap = append(recipeMap, elmt)
+	})
+
+	c.OnScraped(func(r *colly.Response) {
+		wg.Done()
 	})
 
 	c.Visit("https://little-alchemy.fandom.com/wiki/Elements_(Little_Alchemy_2)")
-	return recipe
+
+	wg.Wait()
+	return recipeMap
+}
+
+func convertToJson(recipes []Element) {
+	jsonBytes, err := json.MarshalIndent(recipes, "", "  ")
+	if err != nil {
+		fmt.Println("Error marshalling to JSON:", err)
+		return
+	}
+	err = os.WriteFile("./data/recipes.json", jsonBytes, 0644)
+	if err != nil {
+		fmt.Println("Error writing to file:", err)
+		return
+	}
 }
