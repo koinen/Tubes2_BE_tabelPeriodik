@@ -48,15 +48,18 @@ func scrape() []Element {
 		if tds.Length() < 2 {
 			return
 		}
+
 		var elmt Element
 		if tds.Eq(0).Find("a[title]").First().AttrOr("title", "") == "Elements (Little Alchemy 1)" {
 			return
 		}
+
 		elmt.Name = tds.Eq(0).Find("a[title]").First().AttrOr("title", "")
 		if elmt.Name == "Time" {
 			fmt.Println("Skipping Time element")
 			return
 		}
+
 		elmt.Tier = currentTier
 		tds.Eq(1).Find("li").Each(func(i int, li *goquery.Selection) {
 			var ingredients [2]string
@@ -68,9 +71,10 @@ func scrape() []Element {
 				ingredients[j] = a.AttrOr("title", "")
 			})
 			if ingredients[0] != "" && ingredients[1] != "" {
-				elmt.Recipes = append(elmt.Recipes, [2]string{ingredients[0], ingredients[1]})
+				elmt.Recipes = append(elmt.Recipes, ingredients)
 			}
 		})
+
 		recipeMap = append(recipeMap, elmt)
 	})
 
