@@ -6,12 +6,11 @@ import (
 	"sync/atomic"
 )
 
-var numberVisit int32
-
 type ElementNode struct {
-	Name    string
-	Tier    int
-	Recipes []*RecipeNode
+	IsVisited bool
+	Name      string
+	Tier      int
+	Recipes   []*RecipeNode
 }
 
 type RecipeNode struct {
@@ -31,17 +30,25 @@ type ExportableRecipe struct {
 	Ingredient2 string `json:"ingredient2"`
 }
 
+var numberVisit int32
+var visitMu sync.Mutex
 
 func DFS(
 	current *ElementNode,
 	wg *sync.WaitGroup,
 	elements map[string]*ElementNode,
 	recipes []RecipeNode,
-	treeMu *sync.Mutex,
-	cache map[string]*ElementNode,
-	cacheMu *sync.Mutex,
 ) {
 	defer wg.Done()
+
+	// Locking visit check
+	visitMu.Lock()
+	if current.IsVisited {
+		visitMu.Unlock()
+		return
+	}
+	current.IsVisited = true
+	visitMu.Unlock()
 
 	count := atomic.AddInt32(&numberVisit, 1)
 	fmt.Printf("Visiting node (%d): %s Tier: %d\n", count, current.Name, current.Tier)
@@ -51,59 +58,38 @@ func DFS(
 			continue
 		}
 
-		// Get or create Ingredient1
-		cacheMu.Lock()
-		ing1, found1 := cache[recipe.Ingredient1.Name]
-		cacheMu.Unlock()
-
-		if !found1 {
-			base1, exists1 := elements[recipe.Ingredient1.Name]
-			if !exists1 {
-				fmt.Printf("Missing element: %s\n", recipe.Ingredient1.Name)
-				continue
-			}
-			ing1 = &ElementNode{
-				Name:    base1.Name,
-				Tier:    base1.Tier,
-				Recipes: []*RecipeNode{},
-			}
-			cacheMu.Lock()
-			cache[ing1.Name] = ing1
-			cacheMu.Unlock()
-			wg.Add(1)
-			go DFS(ing1, wg, elements, recipes, treeMu, cache, cacheMu)
+		// Get pointers to real ingredients
+		base1, ok1 := elements[recipe.Ingredient1.Name]
+		base2, ok2 := elements[recipe.Ingredient2.Name]
+		if !ok1 || !ok2 {
+			fmt.Printf("Missing ingredients for %s: %s or %s\n", current.Name, recipe.Ingredient1.Name, recipe.Ingredient2.Name)
+			continue
 		}
 
-		// Get or create Ingredient2
-		cacheMu.Lock()
-		ing2, found2 := cache[recipe.Ingredient2.Name]
-		cacheMu.Unlock()
-
-		if !found2 {
-			base2, exists2 := elements[recipe.Ingredient2.Name]
-			if !exists2 {
-				fmt.Printf("Missing element: %s\n", recipe.Ingredient2.Name)
-				continue
-			}
-			ing2 = &ElementNode{
-				Name:    base2.Name,
-				Tier:    base2.Tier,
-				Recipes: []*RecipeNode{},
-			}
-			cacheMu.Lock()
-			cache[ing2.Name] = ing2
-			cacheMu.Unlock()
+		// Launch DFS on ingredient1 if not visited
+		visitMu.Lock()
+		if !base1.IsVisited {
 			wg.Add(1)
-			go DFS(ing2, wg, elements, recipes, treeMu, cache, cacheMu)
+			go DFS(base1, wg, elements, recipes)
 		}
+		visitMu.Unlock()
 
-		treeMu.Lock()
+		// Launch DFS on ingredient2 if not visited
+		visitMu.Lock()
+		if !base2.IsVisited {
+			wg.Add(1)
+			go DFS(base2, wg, elements, recipes)
+		}
+		visitMu.Unlock()
+
+		// Append recipe to current safely
+		visitMu.Lock()
 		current.Recipes = append(current.Recipes, &RecipeNode{
 			Result:      current.Name,
-			Ingredient1: ing1,
-			Ingredient2: ing2,
+			Ingredient1: base1,
+			Ingredient2: base2,
 		})
-		treeMu.Unlock()
+		visitMu.Unlock()
 	}
 }
 

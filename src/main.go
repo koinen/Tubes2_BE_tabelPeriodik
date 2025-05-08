@@ -61,23 +61,23 @@ func main() {
 	// Build tree from user input
 	root := &ElementNode{Name: elementName, Tier: elementTier, Recipes: []*RecipeNode{}}
 	wg := &sync.WaitGroup{}
-	cacheMu := &sync.Mutex{}
-	treeMu := &sync.Mutex{}
-	cache := make(map[string]*ElementNode)
-	cache[root.Name] = root
 
 	wg.Add(1)
-	go DFS(root, wg, elementMap, allRecipes, treeMu, cache, cacheMu)
+	DFS(root, wg, elementMap, allRecipes)
 	wg.Wait()
 
 	fmt.Println("DFS completed")
 
 	// Export tree
 	var exportList []ExportableElement
-	for _, node := range cache {
-		exportList = append(exportList, ToExportableElement(node))
+	for _, el := range elementMap {
+		if el.IsVisited {
+			exportableElmt := ToExportableElement(el)
+			exportList = append(exportList, exportableElmt)
+		}
 	}
 
+	// Write to file
 	jsonOut, err := json.MarshalIndent(exportList, "", "  ")
 	if err != nil {
 		panic(err)
