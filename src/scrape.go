@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gocolly/colly"
@@ -21,8 +20,6 @@ func scrape() []Element {
 	c := colly.NewCollector()
 	var recipeMap []Element
 	var currentTier int
-	var wg sync.WaitGroup
-	wg.Add(1)
 
 	c.OnHTML("tr, h3", func(e *colly.HTMLElement) {
 		if e.Name == "h3" {
@@ -79,12 +76,10 @@ func scrape() []Element {
 	})
 
 	c.OnScraped(func(r *colly.Response) {
-		wg.Done()
 	})
 
 	c.Visit("https://little-alchemy.fandom.com/wiki/Elements_(Little_Alchemy_2)")
 
-	wg.Wait()
 	return recipeMap
 }
 
