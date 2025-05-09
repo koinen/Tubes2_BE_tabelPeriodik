@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 )
 
 // type ElementNode struct {
@@ -67,7 +68,7 @@ func bfs_single(root *ElementNode, elements map[string]*ElementNode, recipes []R
 				continue
 			}
 
-			if base1.Tier > current.Tier || base2.Tier > current.Tier {
+			if base1.Tier >= current.Tier || base2.Tier >= current.Tier {
 				continue
 			}
 
@@ -105,59 +106,95 @@ func bfs_single(root *ElementNode, elements map[string]*ElementNode, recipes []R
 }
 
 func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []RecipeNode) {
-	q := []*ElementNode{root}
+	// q := make(chan *ElementNode, 100)
 	visited := make(map[string]bool)
+	var mu sync.Mutex
+
+	mu.Lock()
 	visited[root.Name] = true
 	root.IsVisited = true
-	for len(q) > 0 {
-		current := q[0]
-		// fmt.Println(current.Name)
+	mu.Unlock()
 
-		for _, recipe := range recipes {
-			base1, ok1 := elements[recipe.Ingredient1.Name]
-			base2, ok2 := elements[recipe.Ingredient2.Name]
+	// done := make(chan struct{})
 
-			if !ok1 || !ok2 {
-				continue
-			}
+	// const numberofWoker = 4
+	// var wg sync.WaitGroup
 
-			if recipe.Result != current.Name {
-				continue
-			}
+	// wg.Add(1)
+	// q <- root
+	currentLevel := []*ElementNode{root}
 
-			if base1.Tier > current.Tier || base2.Tier > current.Tier {
-				continue
-			}
+	for len(currentLevel) > 0 {
+		// wg.Add(1)
+		var wg sync.WaitGroup
+		var nextLevel []*ElementNode
 
-			if ok1 && ok2 {
+		// go func() {
+		for _, current := range currentLevel {
+			// fmt.Println("Worker: ", i)
+			// wg.Done()
+			// fmt.Println(current.Name)
+			wg.Add(1)
+			go func(current *ElementNode) {
+				defer wg.Done()
 
-				current.Children = append(current.Children, &RecipeNode{
-					Result:      current.Name,
-					Ingredient1: base1,
-					Ingredient2: base2,
-				})
-				//BFS
+				for _, recipe := range recipes {
+					base1, ok1 := elements[recipe.Ingredient1.Name]
+					base2, ok2 := elements[recipe.Ingredient2.Name]
 
-				if !visited[base1.Name] {
-					// fmt.Println("Enque: ", base1.Name)
-					//Enqueue
-					q = append(q, base1)
-					visited[base1.Name] = true
-					base1.IsVisited = true
+					if !ok1 || !ok2 {
+						continue
+					}
+
+					if recipe.Result != current.Name {
+						continue
+					}
+
+					if base1.Tier > current.Tier || base2.Tier > current.Tier {
+
+						continue
+					}
+
+					mu.Lock()
+					current.Children = append(current.Children, &RecipeNode{
+						Result:      current.Name,
+						Ingredient1: base1,
+						Ingredient2: base2,
+					})
+					mu.Unlock()
+					//BFS
+					mu.Lock()
+					if !visited[base1.Name] {
+						// fmt.Println("Enque: ", base1.Name)
+						//Enqueue
+						visited[base1.Name] = true
+						base1.IsVisited = true
+						// wg.Add(1)
+						nextLevel = append(nextLevel, base1)
+					}
+
+					if !visited[base2.Name] {
+						//Enqueue
+						visited[base2.Name] = true
+						base2.IsVisited = true
+						// wg.Add(1)
+						nextLevel = append(nextLevel, base2)
+					}
+					mu.Unlock()
 				}
-
-				if !visited[base2.Name] {
-					//Enqueue
-					q = append(q, base2)
-					visited[base2.Name] = true
-					base2.IsVisited = true
-				}
-			}
+			}(current)
 		}
-		//Dequeue
-		q = q[1:]
-
+		wg.Wait()
+		currentLevel = nextLevel
+		// }()
 	}
+
+	// go func() {
+	// 	wg.Wait()
+	// 	close(done)
+	// }()
+
+	// <-done
 }
 
 func (n ElementNode) display() {
