@@ -12,9 +12,9 @@ import (
 
 func main() {
 	// convertToJson(scrape())
-	serve()
+	// serve()
 	// Read JSON
-	data, err := os.ReadFile("data/tes.json")
+	data, err := os.ReadFile("data/recipes.json")
 	if err != nil {
 		panic(err)
 	}
@@ -65,7 +65,7 @@ func main() {
 	wg := &sync.WaitGroup{}
 
 	wg.Add(1)
-	DFS(root, wg, elementMap, allRecipes)
+	DFS_Single(root, wg, elementMap, allRecipes)
 	wg.Wait()
 
 	fmt.Println("DFS completed")
