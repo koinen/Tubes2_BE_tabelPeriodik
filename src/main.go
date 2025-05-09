@@ -7,7 +7,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 func main() {
@@ -53,32 +52,27 @@ func main() {
 			if len(r) == 2 {
 				allRecipes = append(allRecipes, RecipeNode{
 					Result:      el.Name,
-					Ingredient1: &ElementNode{Name: r[0]},
-					Ingredient2: &ElementNode{Name: r[1]},
+					Ingredient1: &ElementNode{Name: r[0], IsVisited: false, Children: []*RecipeNode{}},
+					Ingredient2: &ElementNode{Name: r[1], IsVisited: false, Children: []*RecipeNode{}},
 				})
 			}
 		}
 	}
 
-	// Build tree from user input
 	root := &ElementNode{Name: elementName, Tier: elementTier, Children: []*RecipeNode{}}
-	wg := &sync.WaitGroup{}
+	bfs(root, elementMap, allRecipes)
 
-	wg.Add(1)
-	DFS_Single(root, wg, elementMap, allRecipes)
-	wg.Wait()
+	// root.display()
+	// root.Children[1].Ingredient2.display()
+	// root.Children[0].Ingredient2.display()
 
-	fmt.Println("DFS completed")
-
-	// Export tree
 	exportList := ExportableElement{
 		Name:       root.Name,
 		Attributes: "element",
-		Children:   make([]ExportableRecipe, 0, len(root.Children)),
+		Children:   make([]ExportableRecipe, 0, 1),
 	}
 	ToExportableElement(root, &exportList)
 
-	// Write to file
 	jsonOut, err := json.MarshalIndent(exportList, "", "  ")
 	if err != nil {
 		panic(err)
