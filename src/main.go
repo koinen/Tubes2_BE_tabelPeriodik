@@ -11,7 +11,7 @@ import (
 
 func main() {
 	// convertToJson(scrape())
-	// serve()
+	serve()
 	// Read JSON
 	data, err := os.ReadFile("data/recipes.json")
 	if err != nil {
