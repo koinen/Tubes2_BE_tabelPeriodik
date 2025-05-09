@@ -4,8 +4,27 @@ import (
 	"net/http"
 )
 
+func withCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func addRouteWithCORS(path string, handlerFunc http.HandlerFunc) {
+	http.Handle(path, withCORS(handlerFunc))
+}
+
 func serve() {
-	http.HandleFunc("/DFS/", func(w http.ResponseWriter, r *http.Request) {
+	addRouteWithCORS("/DFS/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		elmtName := r.URL.Path[len("/DFS/"):]
 		if elmtName == "" {
@@ -14,7 +33,7 @@ func serve() {
 		}
 	})
 
-	http.HandleFunc("/BFS/", func(w http.ResponseWriter, r *http.Request) {
+	addRouteWithCORS("/BFS/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		elmtName := r.URL.Path[len("/BFS/"):]
 		if elmtName == "" {
@@ -23,8 +42,41 @@ func serve() {
 		}
 	})
 
-	http.HandleFunc("/Bidirect/", func(w http.ResponseWriter, r *http.Request) {
+	addRouteWithCORS("/Bidirect/", func(w http.ResponseWriter, r *http.Request) {
 	})
 
+	addRouteWithCORS("/example-tree-data", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`[
+			{
+				"name": "Element A",
+				"attributes": { "type": "element" },
+				"children": [
+					{
+						"attributes": { "type": "recipe" },
+						"children": [
+							{ "name": "Element B", "attributes": { "type": "element" } },
+							{ "name": "Element C", "attributes": { "type": "element" } }
+						]
+					},
+					{
+						"attributes": { "type": "recipe" },
+						"children": [
+							{ "name": "Element B", "attributes": { "type": "element" }, "children": [
+								{
+									"attributes": { "type": "recipe" },
+									"children": [
+										{ "name": "Element B", "attributes": { "type": "element" } },
+										{ "name": "Element C", "attributes": { "type": "element" } }
+									]
+								}
+							] },
+							{ "name": "Element C", "attributes": { "type": "element" } }
+						] 
+					}
+				]
+			}
+		]`))
+	})
 	http.ListenAndServe(":8080", nil)
 }

@@ -1,6 +1,6 @@
 package main
 
 func main() {
-	convertToJson(scrape())
-	// serve()
+	// convertToJson(scrape())
+	serve()
 }
