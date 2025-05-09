@@ -148,7 +148,11 @@ func serve(jsonBytes []byte) {
 
 		// Build tree from user input
 		// root := &ElementNode{Name: elmtName, Tier: elementTier, Children: []*RecipeNode{}}
-		root := elementMap[elmtName]
+		root, exists := elementMap[elmtName]
+		if !exists {
+			http.Error(w, "Element not found", http.StatusNotFound)
+			return
+		}
 		wg := &sync.WaitGroup{}
 
 		wg.Add(1)
