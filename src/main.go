@@ -1,13 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
-	"sync"
-	"bufio"
-	"strings"
 	"strconv"
+	"strings"
+	"sync"
 )
 
 func main() {
@@ -45,8 +45,8 @@ func main() {
 
 	for _, el := range rawElements {
 		elementMap[el.Name] = &ElementNode{
-			Name:    el.Name,
-			Tier:    el.Tier,
+			Name:     el.Name,
+			Tier:     el.Tier,
 			Children: []*RecipeNode{},
 		}
 		for _, r := range el.Recipes {

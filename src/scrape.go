@@ -95,3 +95,8 @@ func convertToJson(recipes []Element) {
 		return
 	}
 }
+
+func main() {
+	recipes := scrape()
+	convertToJson(recipes)
+}
