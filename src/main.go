@@ -13,8 +13,6 @@ import (
 func main() {
 	// convertToJson(scrape())
 	serve()
-}
-
 	// Read JSON
 	data, err := os.ReadFile("data/tes.json")
 	if err != nil {
@@ -49,7 +47,7 @@ func main() {
 		elementMap[el.Name] = &ElementNode{
 			Name:    el.Name,
 			Tier:    el.Tier,
-			Recipes: []*RecipeNode{},
+			Children: []*RecipeNode{},
 		}
 		for _, r := range el.Recipes {
 			if len(r) == 2 {
@@ -63,7 +61,7 @@ func main() {
 	}
 
 	// Build tree from user input
-	root := &ElementNode{Name: elementName, Tier: elementTier, Recipes: []*RecipeNode{}}
+	root := &ElementNode{Name: elementName, Tier: elementTier, Children: []*RecipeNode{}}
 	wg := &sync.WaitGroup{}
 
 	wg.Add(1)
@@ -73,13 +71,12 @@ func main() {
 	fmt.Println("DFS completed")
 
 	// Export tree
-	var exportList []ExportableElement
-	for _, el := range elementMap {
-		if el.IsVisited {
-			exportableElmt := ToExportableElement(el)
-			exportList = append(exportList, exportableElmt)
-		}
+	exportList := ExportableElement{
+		Name:       root.Name,
+		Attributes: "element",
+		Children:   make([]ExportableRecipe, 0, len(root.Children)),
 	}
+	ToExportableElement(root, &exportList)
 
 	// Write to file
 	jsonOut, err := json.MarshalIndent(exportList, "", "  ")

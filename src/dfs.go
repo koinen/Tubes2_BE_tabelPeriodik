@@ -10,7 +10,7 @@ type ElementNode struct {
 	IsVisited bool
 	Name      string
 	Tier      int
-	Recipes   []*RecipeNode
+	Children  []*RecipeNode
 }
 
 type RecipeNode struct {
@@ -20,14 +20,14 @@ type RecipeNode struct {
 }
 
 type ExportableElement struct {
-	Name    string           `json:"name"`
-	Tier    int              `json:"tier"`
-	Recipes []ExportableRecipe `json:"recipes"`
+	Name         string           `json:"name"`
+	Attributes	 string		      `json:"attributes"`
+	Children     []ExportableRecipe   `json:"children"`
 }
 
 type ExportableRecipe struct {
-	Ingredient1 string `json:"ingredient1"`
-	Ingredient2 string `json:"ingredient2"`
+	Attributes   string `json:"attributes"`
+	Children     []ExportableElement `json:"children"`
 }
 
 var numberVisit int32
@@ -37,7 +37,7 @@ func DFS(
 	current *ElementNode,
 	wg *sync.WaitGroup,
 	elements map[string]*ElementNode,
-	recipes []RecipeNode,
+	Children[]RecipeNode,
 ) {
 	defer wg.Done()
 
@@ -53,7 +53,7 @@ func DFS(
 	count := atomic.AddInt32(&numberVisit, 1)
 	fmt.Printf("Visiting node (%d): %s Tier: %d\n", count, current.Name, current.Tier)
 
-	for _, recipe := range recipes {
+	for _, recipe := range Children{
 		if recipe.Result != current.Name {
 			continue
 		}
@@ -70,7 +70,7 @@ func DFS(
 		visitMu.Lock()
 		if !base1.IsVisited {
 			wg.Add(1)
-			go DFS(base1, wg, elements, recipes)
+			go DFS(base1, wg, elements, Children)
 		}
 		visitMu.Unlock()
 
@@ -78,13 +78,13 @@ func DFS(
 		visitMu.Lock()
 		if !base2.IsVisited {
 			wg.Add(1)
-			go DFS(base2, wg, elements, recipes)
+			go DFS(base2, wg, elements, Children)
 		}
 		visitMu.Unlock()
 
 		// Append recipe to current safely
 		visitMu.Lock()
-		current.Recipes = append(current.Recipes, &RecipeNode{
+		current.Children= append(current.Children, &RecipeNode{
 			Result:      current.Name,
 			Ingredient1: base1,
 			Ingredient2: base2,
@@ -94,17 +94,35 @@ func DFS(
 }
 
 // Converts internal ElementNode to exportable form
-func ToExportableElement(node *ElementNode) ExportableElement {
-	exported := ExportableElement{
-		Name:    node.Name,
-		Tier:    node.Tier,
-		Recipes: make([]ExportableRecipe, 0, len(node.Recipes)),
+func ToExportableElement(node *ElementNode, res *ExportableElement) {
+	if node == nil {
+		return;
 	}
-	for _, r := range node.Recipes {
-		exported.Recipes = append(exported.Recipes, ExportableRecipe{
-			Ingredient1: r.Ingredient1.Name,
-			Ingredient2: r.Ingredient2.Name,
-		})
+
+	if !node.IsVisited {
+		return;
 	}
-	return exported
+
+	if node.Tier == 0 {
+		res.Name = node.Name
+		res.Attributes = "element"
+		return;
+	}
+
+	res.Name = node.Name
+	res.Attributes = "element"
+	res.Children = make([]ExportableRecipe, len(node.Children))
+	for i := range node.Children {
+		ToExportableRecipe(node.Children[i], &res.Children[i])
+	}
+}
+
+func ToExportableRecipe(node *RecipeNode, res *ExportableRecipe) {
+	if node == nil {
+		return;
+	}
+	res.Attributes = "recipe"
+	res.Children = make([]ExportableElement, 2)
+	ToExportableElement(node.Ingredient1, &res.Children[0])
+	ToExportableElement(node.Ingredient2, &res.Children[1])
 }

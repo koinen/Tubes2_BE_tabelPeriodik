@@ -48,34 +48,58 @@ func serve() {
 	addRouteWithCORS("/example-tree-data", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`[
-			{
-				"name": "Element A",
-				"attributes": { "type": "element" },
-				"children": [
-					{
-						"attributes": { "type": "recipe" },
-						"children": [
-							{ "name": "Element B", "attributes": { "type": "element" } },
-							{ "name": "Element C", "attributes": { "type": "element" } }
-						]
-					},
-					{
-						"attributes": { "type": "recipe" },
-						"children": [
-							{ "name": "Element B", "attributes": { "type": "element" }, "children": [
-								{
-									"attributes": { "type": "recipe" },
-									"children": [
-										{ "name": "Element B", "attributes": { "type": "element" } },
-										{ "name": "Element C", "attributes": { "type": "element" } }
-									]
-								}
-							] },
-							{ "name": "Element C", "attributes": { "type": "element" } }
-						] 
-					}
-				]
-			}
+{
+  "name": "Dust",
+  "attributes": "element",
+  "children": [
+    {
+      "attributes": "recipe",
+      "children": [
+        {
+          "name": "Earth",
+          "attributes": "element",
+          "children": null
+        },
+        {
+          "name": "Air",
+          "attributes": "element",
+          "children": null
+        }
+      ]
+    },
+    {
+      "attributes": "recipe",
+      "children": [
+        {
+          "name": "Land",
+          "attributes": "element",
+          "children": [
+            {
+              "attributes": "recipe",
+              "children": [
+                {
+                  "name": "Earth",
+                  "attributes": "element",
+                  "children": null
+                },
+                {
+                  "name": "Earth",
+                  "attributes": "element",
+                  "children": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Air",
+          "attributes": "element",
+          "children": null
+        }
+      ]
+    }
+  ]
+}
 		]`))
 	})
 	http.ListenAndServe(":8080", nil)
