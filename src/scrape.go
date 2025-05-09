@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -71,7 +70,6 @@ func scrape() []Element {
 				elmt.Recipes = append(elmt.Recipes, ingredients)
 			}
 		})
-
 		recipeMap = append(recipeMap, elmt)
 	})
 
@@ -83,15 +81,15 @@ func scrape() []Element {
 	return recipeMap
 }
 
-func convertToJson(recipes []Element) {
+func convertToJson(recipes []Element) ([]byte, error) {
 	jsonBytes, err := json.MarshalIndent(recipes, "", "  ")
 	if err != nil {
 		fmt.Println("Error marshalling to JSON:", err)
-		return
+		return nil, err
 	}
-	err = os.WriteFile("./data/recipes.json", jsonBytes, 0644)
-	if err != nil {
-		fmt.Println("Error writing to file:", err)
-		return
+	if jsonBytes == nil {
+		fmt.Println("jsonBytes is nil")
+		return nil, fmt.Errorf("jsonBytes is nil")
 	}
+	return jsonBytes, nil
 }

@@ -20,14 +20,14 @@ type RecipeNode struct {
 }
 
 type ExportableElement struct {
-	Name         string           `json:"name"`
-	Attributes	 string		      `json:"attributes"`
-	Children     []ExportableRecipe   `json:"children"`
+	Name       string             `json:"name"`
+	Attributes string             `json:"attributes"`
+	Children   []ExportableRecipe `json:"children"`
 }
 
 type ExportableRecipe struct {
-	Attributes   string `json:"attributes"`
-	Children     []ExportableElement `json:"children"`
+	Attributes string              `json:"attributes"`
+	Children   []ExportableElement `json:"children"`
 }
 
 var numberVisit int32
@@ -38,6 +38,7 @@ func DFS_Multiple(
 	current *ElementNode,
 	wg *sync.WaitGroup,
 	elements map[string]*ElementNode,
+	depthChan chan int,
 ) {
 	defer wg.Done()
 
@@ -103,14 +104,18 @@ func DFS_Multiple(
 			continue
 		}
 
+		if depthChan != nil {
+			// Send the current depth to the channel
+			depthChan <- current.Tier
+		}
 		// Recurse deeper
 		if ing1.Tier != 0 && !isVisited(ing1) {
 			wg.Add(1)
-			go DFS_Multiple(ing1, wg, elements)
+			go DFS_Multiple(ing1, wg, elements, depthChan)
 		}
 		if ing2.Tier != 0 && !isVisited(ing2) {
 			wg.Add(1)
-			go DFS_Multiple(ing2, wg, elements)
+			go DFS_Multiple(ing2, wg, elements, depthChan)
 		}
 	}
 
