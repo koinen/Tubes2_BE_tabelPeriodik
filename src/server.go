@@ -205,50 +205,130 @@ func serve(jsonBytes []byte) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`[
 {
-  "name": "Dust",
+  "name": "Sword",
   "attributes": "element",
   "children": [
     {
       "attributes": "recipe",
       "children": [
         {
-          "name": "Earth",
-          "attributes": "element",
-          "children": null
-        },
-        {
-          "name": "Air",
-          "attributes": "element",
-          "children": null
-        }
-      ]
-    },
-    {
-      "attributes": "recipe",
-      "children": [
-        {
-          "name": "Land",
+          "name": "Blade",
           "attributes": "element",
           "children": [
             {
               "attributes": "recipe",
               "children": [
                 {
-                  "name": "Earth",
+                  "name": "Stone",
                   "attributes": "element",
-                  "children": null
+                  "children": [
+                    {
+                      "attributes": "recipe",
+                      "children": [
+                        {
+                          "name": "Earth",
+                          "attributes": "element",
+                          "children": null
+                        },
+                        {
+                          "name": "Pressure",
+                          "attributes": "element",
+                          "children": [
+                            {
+                              "attributes": "recipe",
+                              "children": [
+                                {
+                                  "name": "Air",
+                                  "attributes": "element",
+                                  "children": null
+                                },
+                                {
+                                  "name": "Air",
+                                  "attributes": "element",
+                                  "children": null
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
                 },
                 {
-                  "name": "Earth",
+                  "name": "Metal",
                   "attributes": "element",
-                  "children": null
+                  "children": [
+                    {
+                      "attributes": "recipe",
+                      "children": [
+                        {
+                          "name": "Stone",
+                          "attributes": "element",
+                          "children": null
+                        },
+                        {
+                          "name": "Fire",
+                          "attributes": "element",
+                          "children": null
+                        }
+                      ]
+                    },
+                    {
+                      "attributes": "recipe",
+                      "children": [
+                        {
+                          "name": "Stone",
+                          "attributes": "element",
+                          "children": null
+                        },
+                        {
+                          "name": "Heat",
+                          "attributes": "element",
+                          "children": [
+                            {
+                              "attributes": "recipe",
+                              "children": [
+                                {
+                                  "name": "Air",
+                                  "attributes": "element",
+                                  "children": null
+                                },
+                                {
+                                  "name": "Energy",
+                                  "attributes": "element",
+                                  "children": [
+                                    {
+                                      "attributes": "recipe",
+                                      "children": [
+                                        {
+                                          "name": "Fire",
+                                          "attributes": "element",
+                                          "children": null
+                                        },
+                                        {
+                                          "name": "Fire",
+                                          "attributes": "element",
+                                          "children": null
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             }
           ]
         },
         {
-          "name": "Air",
+          "name": "Metal",
           "attributes": "element",
           "children": null
         }
