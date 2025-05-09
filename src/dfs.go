@@ -49,6 +49,11 @@ func DFS_Multiple(
 	}
 	visitMu.Unlock()
 
+	if depthChan != nil {
+		// Send the current depth to the channel
+		depthChan <- current.Tier
+	}
+
 	if current.Tier == 0 {
 		return
 	}
@@ -116,11 +121,6 @@ func DFS_Multiple(
 		// Stop if both ingredients are tier 0
 		if ing1.Tier == 0 && ing2.Tier == 0 {
 			continue
-		}
-
-		if depthChan != nil {
-			// Send the current depth to the channel
-			depthChan <- current.Tier
 		}
 		// Recurse deeper
 		if ing1.Tier != 0 && !isVisited(ing1) {
