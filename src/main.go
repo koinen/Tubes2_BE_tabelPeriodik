@@ -11,6 +11,10 @@ import (
 )
 
 func main() {
+	// convertToJson(scrape())
+	serve()
+}
+
 	// Read JSON
 	data, err := os.ReadFile("data/tes.json")
 	if err != nil {
