@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"sync/atomic"
+  "strconv"
 )
 
 func withCORS(next http.Handler) http.Handler {
@@ -38,6 +40,14 @@ func serve(jsonBytes []byte) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
+
+		recipeAmount := r.URL.Query().Get("recipeAmount")
+		val, err := strconv.Atoi(recipeAmount)
+		if err != nil {
+			http.Error(w, "Invalid recipe amount", http.StatusBadRequest)
+			return
+		}
+		atomic.StoreInt32(&recipeLeft, int32(val - 1))
 
 		fmt.Println("Starting live DFS stream...")
 
@@ -101,8 +111,25 @@ func serve(jsonBytes []byte) {
 			}
 			fmt.Fprintf(w, "data: %s\n\n", wrapped)
 			w.(http.Flusher).Flush()
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(500 * time.Millisecond)
 		}
+		finalExport := ExportableElement{
+			Name:       root.Name,
+			Attributes: "element",
+			Children:   make([]ExportableRecipe, 0, len(root.Children)),
+		}
+		visitedExport := make(map[*ElementNode]bool)
+		ToExportableElement(root, &finalExport, visitedExport)
+
+		finalPayload := map[string]any{
+			"depth": finalExport,
+		}
+		finalWrapped, err := json.Marshal(finalPayload)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Fprintf(w, "data: %s\n\n", finalWrapped)
+		w.(http.Flusher).Flush()
 	})
 
 	addRouteWithCORS("/DFS/", func(w http.ResponseWriter, r *http.Request) {
@@ -114,10 +141,17 @@ func serve(jsonBytes []byte) {
 		fmt.Println("Query parameter:", query)
 		fmt.Println("Live parameter:", live)
 		fmt.Println("Recipe amount parameter:", recipeAmount)
+		val, err := strconv.Atoi(recipeAmount)
+		if err != nil {
+		http.Error(w, "Invalid recipe amount", http.StatusBadRequest)
+		return
+		}
 		if elmtName == "" {
 			http.Error(w, "Element name is required", http.StatusBadRequest)
 			return
 		}
+
+		atomic.StoreInt32(&recipeLeft, int32(val - 1))
 		fmt.Println("Starting DFS for element:", elmtName)
 		elementMap := make(map[string]*ElementNode)
 

@@ -32,7 +32,7 @@ type ExportableRecipe struct {
 
 var numberVisit int32
 var visitMu sync.Mutex
-var recipeLeft int32 = 3 // set this before starting
+var recipeLeft int32
 
 func DFS_Multiple(
 	current *ElementNode,
@@ -47,7 +47,9 @@ func DFS_Multiple(
 		visitMu.Unlock()
 		return
 	}
+	current.IsVisited = true
 	visitMu.Unlock()
+
 
 	if depthChan != nil {
 		// Send the current depth to the channel
@@ -63,7 +65,8 @@ func DFS_Multiple(
 
 	ALLrecipes := current.Children
 	current.Children = []*RecipeNode{}
-	for i, recipe := range ALLrecipes {
+	fistAdd := true
+	for _, recipe := range ALLrecipes {
 		if recipe.Result != current.Name {
 			continue
 		}
@@ -90,22 +93,23 @@ func DFS_Multiple(
 		// visitMu.Unlock()
 
 		if ing1.Tier > current.Tier || ing2.Tier > current.Tier {
-			// Uncomment this to also visit higher tier ingredients
-			// wg.Add(1)
-			// go DFS_Higher(ing1, wg, elements)
+		// 	// Uncomment this to also visit higher tier ingredients
+		// 	// wg.Add(1)
+		// 	// go DFS_Higher(ing1, wg, elements)
 			continue
 		}
 
-		if i != 0 {
+		if !fistAdd {
 			if atomic.LoadInt32(&recipeLeft) <= 0 {
-				break
+				continue
 			}
 			atomic.AddInt32(&recipeLeft, -1)
 		}
+		fistAdd = false
 
 		visitMu.Lock()
 		current.Children = append(current.Children, recipe)
-		fmt.Printf("Appending recipe %d for %s, %s + %s\n", i, current.Name, ing1.Name, ing2.Name)
+		fmt.Printf("Appending recipe for %s, %s + %s\n", current.Name, ing1.Name, ing2.Name)
 		visitMu.Unlock()
 
 		// Mark tier-0 ingredients as visited
@@ -133,11 +137,11 @@ func DFS_Multiple(
 		}
 	}
 
-	if atomic.LoadInt32(&recipeLeft) > 0 {
-		// Uncomment this to also visit higher tier ingredients
-		// wg.Add(1)
-		// go DFS_Higher(current, wg, elements)
-	}
+	// if atomic.LoadInt32(&recipeLeft) > 0 {
+	// 	// Uncomment this to also visit higher tier ingredients
+	// 	// wg.Add(1)
+	// 	// go DFS_Higher(current, wg, elements)
+	// }
 
 	if len(current.Children) == 0 {
 		wg.Add(1)
@@ -169,10 +173,10 @@ func DFS_Higher(
 
 	fmt.Printf("Total recipes: %d\n", len(ALLrecipes))
 	for _, recipe := range ALLrecipes {
-		fmt.Printf("ingredient1: %s with tier %d\n", recipe.Ingredient1.Name, recipe.Ingredient1.Tier)
-		fmt.Printf("ingredient2: %s with tier %d\n", recipe.Ingredient2.Name, recipe.Ingredient2.Tier)
-		fmt.Printf("Result: %s\n", recipe.Result)
-		fmt.Printf("Current: %s\n", current.Name)
+		// fmt.Printf("ingredient1: %s with tier %d\n", recipe.Ingredient1.Name, recipe.Ingredient1.Tier)
+		// fmt.Printf("ingredient2: %s with tier %d\n", recipe.Ingredient2.Name, recipe.Ingredient2.Tier)
+		// fmt.Printf("Result: %s\n", recipe.Result)
+		// fmt.Printf("Current: %s\n", current.Name)
 		if recipe.Result != current.Name {
 			continue
 		}
@@ -183,13 +187,13 @@ func DFS_Higher(
 			continue
 		}
 
-		fmt.Printf("1111111\n")
+		// fmt.Printf("1111111\n")
 
 		if ing1.Tier < current.Tier && ing2.Tier < current.Tier {
 			continue
 		}
 
-		fmt.Printf("222222\n")
+		// fmt.Printf("222222\n")
 
 		// Append the recipe
 		visitMu.Lock()
