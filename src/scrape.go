@@ -94,7 +94,7 @@ func convertToJson(recipes []Element) ([]byte, error) {
 	return jsonBytes, nil
 }
 
-func main() {
-	recipes := scrape()
-	convertToJson(recipes)
-}
+// func main() {
+// 	recipes := scrape()
+// 	convertToJson(recipes)
+// }

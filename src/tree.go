@@ -4,29 +4,29 @@ import (
 	"fmt"
 )
 
-type ElementNode struct {
-	IsVisited bool
-	Name      string
-	Tier      int
-	Recipes   []*RecipeNode
-}
+// type ElementNode struct {
+// 	IsVisited bool
+// 	Name      string
+// 	Tier      int
+// 	Recipes   []*RecipeNode
+// }
 
-type RecipeNode struct {
-	Result      string
-	Ingredient1 *ElementNode
-	Ingredient2 *ElementNode
-}
+// type RecipeNode struct {
+// 	Result      string
+// 	Ingredient1 *ElementNode
+// 	Ingredient2 *ElementNode
+// }
 
-type ExportableElement struct {
-	Name    string             `json:"name"`
-	Tier    int                `json:"tier"`
-	Recipes []ExportableRecipe `json:"recipes"`
-}
+// type ExportableElement struct {
+// 	Name    string             `json:"name"`
+// 	Tier    int                `json:"tier"`
+// 	Recipes []ExportableRecipe `json:"recipes"`
+// }
 
-type ExportableRecipe struct {
-	Ingredient1 string `json:"ingredient1"`
-	Ingredient2 string `json:"ingredient2"`
-}
+// type ExportableRecipe struct {
+// 	Ingredient1 string `json:"ingredient1"`
+// 	Ingredient2 string `json:"ingredient2"`
+// }
 
 func NewQueue[T any]() Queue[T] {
 	return Queue[T]{}
@@ -56,28 +56,28 @@ func (q *Queue[T]) Dequeue() T {
 	}
 }
 
-func bfs(root *ElementNode, recipes []RecipeNode, elements map[string]*ElementNode) {
-	q := []*ElementNode{root}
-	visited := make(map[string]bool)
-	visited[root.Name] = true
+// func bfs(root *ElementNode, recipes []RecipeNode, elements map[string]*ElementNode) {
+// 	q := []*ElementNode{root}
+// 	visited := make(map[string]bool)
+// 	visited[root.Name] = true
 
-	for len(q) > 0 {
-		current := q[0]
+// 	for len(q) > 0 {
+// 		current := q[0]
 
-		for _, recipe := range recipes {
-			if recipe.Result != current.Name {
-				continue
-			}
+// 		for _, recipe := range recipes {
+// 			if recipe.Result != current.Name {
+// 				continue
+// 			}
 
-			base1, ok1 := elements[recipe.Ingredient1.Name]
-			base2, ok2 := elements[recipe.Ingredient2.Name]
+// 			base1, ok1 := elements[recipe.Ingredient1.Name]
+// 			base2, ok2 := elements[recipe.Ingredient2.Name]
 
-			if ok1 && ok2 {
-				current.Recipes = append(current.Recipes, &RecipeNode{
-					Result: current.Name,
-				})
-			}
-		}
-	}
+// 			if ok1 && ok2 {
+// 				current.Children = append(current.Children, &RecipeNode{
+// 					Result: current.Name,
+// 				})
+// 			}
+// 		}
+// 	}
 
-}
+// }

@@ -214,10 +214,68 @@ func serve(jsonBytes []byte) {
 	addRouteWithCORS("/BFS/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		elmtName := r.URL.Path[len("/BFS/"):]
+		query := r.URL.Query().Get("recipes")
+		live := r.URL.Query().Get("live")
+		recipeAmount := r.URL.Query().Get("recipeAmount")
+		fmt.Println("Query parameter:", query)
+		fmt.Println("Live parameter:", live)
+		fmt.Println("Recipe amount parameter:", recipeAmount)
+		// val, err := strconv.Atoi(recipeAmount)
+		if err != nil {
+			http.Error(w, "Invalid recipe amount", http.StatusBadRequest)
+			return
+		}
 		if elmtName == "" {
 			http.Error(w, "Element name is required", http.StatusBadRequest)
 			return
 		}
+		fmt.Println("Starting FS for element:", elmtName)
+		elementMap := make(map[string]*ElementNode)
+		var allRecipes []RecipeNode
+
+		for _, el := range rawElements {
+			elementMap[el.Name] = &ElementNode{
+				Name:     el.Name,
+				Tier:     el.Tier,
+				Children: []*RecipeNode{},
+			}
+			for _, r := range el.Recipes {
+				if len(r) == 2 {
+					allRecipes = append(allRecipes, RecipeNode{
+						Result:      el.Name,
+						Ingredient1: &ElementNode{Name: r[0], IsVisited: false, Children: []*RecipeNode{}},
+						Ingredient2: &ElementNode{Name: r[1], IsVisited: false, Children: []*RecipeNode{}},
+					})
+				}
+			}
+		}
+
+
+		// Build tree from user input
+		root := &ElementNode{Name: elmtName, Tier: 1, Children: []*RecipeNode{}}
+		root.Tier = elementMap[elmtName].Tier
+		// if !exists {
+		// 	http.Error(w, "Element not found", http.StatusNotFound)
+		// 	return
+		// }
+		bfs(root, elementMap, allRecipes)
+
+		// Export tree
+		exportList := ExportableElement{
+			Name:       root.Name,
+			Attributes: "element",
+			Children:   make([]ExportableRecipe, 0, len(root.Children)),
+		}
+		visitedExport := make(map[*ElementNode]bool)
+		ToExportableElement(root, &exportList, visitedExport)
+
+		// Write to file
+		jsonOut, err := json.Marshal(exportList)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("Exporting to JSON...")
+		w.Write(jsonOut)
 	})
 
 	addRouteWithCORS("/Bidirect/", func(w http.ResponseWriter, r *http.Request) {
