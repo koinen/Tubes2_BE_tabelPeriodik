@@ -105,10 +105,11 @@ func bfs_single(root *ElementNode, elements map[string]*ElementNode, recipes []R
 	}
 }
 
-func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []RecipeNode) {
+func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []RecipeNode, limitRecipe int) {
 	// q := make(chan *ElementNode, 100)
 	visited := make(map[string]bool)
 	var mu sync.Mutex
+	var ru sync.Mutex
 
 	mu.Lock()
 	visited[root.Name] = true
@@ -123,6 +124,8 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []RecipeNo
 	// wg.Add(1)
 	// q <- root
 	currentLevel := []*ElementNode{root}
+	// temp := []*RecipeNode{}
+	count := 0
 
 	for len(currentLevel) > 0 {
 		// wg.Add(1)
@@ -134,10 +137,13 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []RecipeNo
 			// fmt.Println("Worker: ", i)
 			// wg.Done()
 			// fmt.Println(current.Name)
+			// if current.Tier == 0 {
+			// 	continue
+			// }
+
 			wg.Add(1)
 			go func(current *ElementNode) {
 				defer wg.Done()
-
 				for _, recipe := range recipes {
 					base1, ok1 := elements[recipe.Ingredient1.Name]
 					base2, ok2 := elements[recipe.Ingredient2.Name]
@@ -156,11 +162,31 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []RecipeNo
 					}
 
 					mu.Lock()
-					current.Children = append(current.Children, &RecipeNode{
-						Result:      current.Name,
-						Ingredient1: base1,
-						Ingredient2: base2,
-					})
+
+					ru.Lock()
+
+					if current == root {
+						if count >= limitRecipe {
+							mu.Unlock()
+							ru.Unlock()
+							return
+						}
+						count++
+
+						current.Children = append(current.Children, &RecipeNode{
+							Result:      current.Name,
+							Ingredient1: base1,
+							Ingredient2: base2,
+						})
+
+					} else {
+						current.Children = append(current.Children, &RecipeNode{
+							Result:      current.Name,
+							Ingredient1: base1,
+							Ingredient2: base2,
+						})
+					}
+					ru.Unlock()
 					mu.Unlock()
 					//BFS
 					mu.Lock()
@@ -187,6 +213,9 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []RecipeNo
 		wg.Wait()
 		currentLevel = nextLevel
 		// }()
+		// if len(root.Children) >= limitRecipe {
+		// 	return
+		// }
 	}
 
 	// go func() {
