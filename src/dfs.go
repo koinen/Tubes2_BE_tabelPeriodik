@@ -32,6 +32,8 @@ type ExportableRecipe struct {
 
 var numberVisit int32
 var visitMu sync.Mutex
+var channelMax int32
+var sem = make(chan struct{}, channelMax) // Limit to 10 concurrent goroutines
 var recipeLeft int32
 
 func DFS_Multiple(
@@ -40,8 +42,11 @@ func DFS_Multiple(
 	elements map[string]*ElementNode,
 	depthChan chan int,
 ) {
-	defer wg.Done()
-
+	defer func (){
+		if depthChan != nil {
+			depthChan <- current.Tier
+		}
+	}()
 	visitMu.Lock()
 	if current.IsVisited {
 		visitMu.Unlock()
@@ -50,9 +55,7 @@ func DFS_Multiple(
 	current.IsVisited = true
 	visitMu.Unlock()
 
-
 	if depthChan != nil {
-		// Send the current depth to the channel
 		depthChan <- current.Tier
 	}
 
@@ -63,8 +66,10 @@ func DFS_Multiple(
 	count := atomic.AddInt32(&numberVisit, 1)
 	fmt.Printf("Visiting node Multi (%d): %s Tier: %d RecipeLeft: %d\n", count, current.Name, current.Tier, atomic.LoadInt32(&recipeLeft))
 
-	ALLrecipes := current.Children
+	ALLrecipes := make([]*RecipeNode, len(current.Children))
+	copy(ALLrecipes, current.Children)
 	current.Children = []*RecipeNode{}
+
 	fistAdd := true
 	for _, recipe := range ALLrecipes {
 		if recipe.Result != current.Name {
@@ -78,24 +83,7 @@ func DFS_Multiple(
 			continue
 		}
 
-		// if using higher tier ingredients
-		// if i != 0 {
-		// 	if atomic.LoadInt32(&recipeLeft) <= 0 {
-		// 		break
-		// 	}
-		// 	atomic.AddInt32(&recipeLeft, -1)
-		// }
-
-		// if using higher tier ingredients
-		// visitMu.Lock()
-		// current.Children = append(current.Children, recipe)
-		// fmt.Printf("Appending recipe %d for %s, %s + %s\n", i, current.Name, ing1.Name, ing2.Name)
-		// visitMu.Unlock()
-
 		if ing1.Tier > current.Tier || ing2.Tier > current.Tier {
-		// 	// Uncomment this to also visit higher tier ingredients
-		// 	// wg.Add(1)
-		// 	// go DFS_Higher(ing1, wg, elements)
 			continue
 		}
 
@@ -109,10 +97,9 @@ func DFS_Multiple(
 
 		visitMu.Lock()
 		current.Children = append(current.Children, recipe)
-		fmt.Printf("Appending recipe for %s, %s + %s\n", current.Name, ing1.Name, ing2.Name)
+		fmt.Printf("Appending recipe Multi for %s, %s + %s\n", current.Name, ing1.Name, ing2.Name)
 		visitMu.Unlock()
 
-		// Mark tier-0 ingredients as visited
 		visitMu.Lock()
 		if ing1.Tier == 0 {
 			ing1.IsVisited = true
@@ -122,112 +109,54 @@ func DFS_Multiple(
 		}
 		visitMu.Unlock()
 
-		// Stop if both ingredients are tier 0
 		if ing1.Tier == 0 && ing2.Tier == 0 {
 			continue
 		}
-		// Recurse deeper
-		if ing1.Tier != 0 && !isVisited(ing1) {
+
+		select {
+		case sem <- struct{}{}:
 			wg.Add(1)
-			go DFS_Multiple(ing1, wg, elements, depthChan)
+			go func(n *ElementNode) {
+				defer wg.Done()
+				DFS_Multiple(n, wg, elements, depthChan)
+				<-sem // release slot
+			}(ing1)
+		default:
+			DFS_Multiple(ing1, wg, elements, depthChan)
 		}
-		if ing2.Tier != 0 && !isVisited(ing2) {
+		select {
+		case sem <- struct{}{}:
 			wg.Add(1)
-			go DFS_Multiple(ing2, wg, elements, depthChan)
+			go func(n *ElementNode) {
+				defer wg.Done()
+				DFS_Multiple(n, wg, elements, depthChan)
+				<-sem // release slot
+			}(ing2)
+		default:
+			DFS_Multiple(ing2, wg, elements, depthChan)
 		}
 	}
-
-	// if atomic.LoadInt32(&recipeLeft) > 0 {
-	// 	// Uncomment this to also visit higher tier ingredients
-	// 	// wg.Add(1)
-	// 	// go DFS_Higher(current, wg, elements)
-	// }
 
 	if len(current.Children) == 0 {
-		wg.Add(1)
-		go DFS_Single(current, wg, elements)
+		DFS_Single(current, wg, elements, depthChan)
 	}
-
 	visitMu.Lock()
 	current.IsVisited = true
 	visitMu.Unlock()
-}
-
-func DFS_Higher(
-	current *ElementNode,
-	wg *sync.WaitGroup,
-	elements map[string]*ElementNode,
-) {
-	defer wg.Done()
-	visitMu.Lock()
-	if current.IsVisited {
-		visitMu.Unlock()
-		return
-	}
-	current.IsVisited = true
-	visitMu.Unlock()
-	count := atomic.AddInt32(&numberVisit, 1)
-	fmt.Printf("Visiting node Higher (%d): %s Tier: %d\n", count, current.Name, current.Tier)
-	ALLrecipes := current.Children
-	current.Children = []*RecipeNode{}
-
-	fmt.Printf("Total recipes: %d\n", len(ALLrecipes))
-	for _, recipe := range ALLrecipes {
-		// fmt.Printf("ingredient1: %s with tier %d\n", recipe.Ingredient1.Name, recipe.Ingredient1.Tier)
-		// fmt.Printf("ingredient2: %s with tier %d\n", recipe.Ingredient2.Name, recipe.Ingredient2.Tier)
-		// fmt.Printf("Result: %s\n", recipe.Result)
-		// fmt.Printf("Current: %s\n", current.Name)
-		if recipe.Result != current.Name {
-			continue
-		}
-
-		ing1 := recipe.Ingredient1
-		ing2 := recipe.Ingredient2
-		if ing1 == nil || ing2 == nil {
-			continue
-		}
-
-		// fmt.Printf("1111111\n")
-
-		if ing1.Tier < current.Tier && ing2.Tier < current.Tier {
-			continue
-		}
-
-		// fmt.Printf("222222\n")
-
-		// Append the recipe
-		visitMu.Lock()
-		current.Children = append(current.Children, recipe)
-		fmt.Printf("Appending recipe for %s, %s + %s\n", current.Name, ing1.Name, ing2.Name)
-		visitMu.Unlock()
-
-		if ing1.Tier != 0 && !isVisited(ing1) {
-			wg.Add(1)
-			go DFS_Single(ing1, wg, elements)
-		}
-		if ing2.Tier != 0 && !isVisited(ing2) {
-			wg.Add(1)
-			go DFS_Single(ing2, wg, elements)
-		}
-		break
-	}
-}
-
-// Helper to check if a node is visited with mutex protection
-func isVisited(node *ElementNode) bool {
-	visitMu.Lock()
-	defer visitMu.Unlock()
-	return node.IsVisited
 }
 
 func DFS_Single(
 	current *ElementNode,
 	wg *sync.WaitGroup,
 	elements map[string]*ElementNode,
+	depthChan chan int,
 ) {
-	defer wg.Done()
+	defer func (){
+		if depthChan != nil {
+			depthChan <- current.Tier
+		}
+	}()
 
-	// Prevent re-visiting
 	visitMu.Lock()
 	if current.IsVisited {
 		visitMu.Unlock()
@@ -236,11 +165,17 @@ func DFS_Single(
 	current.IsVisited = true
 	visitMu.Unlock()
 
+	if depthChan != nil {
+		depthChan <- current.Tier
+	}
+
 	count := atomic.AddInt32(&numberVisit, 1)
 	fmt.Printf("Visiting node Single (%d): %s Tier: %d\n", count, current.Name, current.Tier)
 
-	ALLrecipes := current.Children
+	ALLrecipes := make([]*RecipeNode, len(current.Children))
+	copy(ALLrecipes, current.Children)
 	current.Children = []*RecipeNode{}
+
 	for _, recipe := range ALLrecipes {
 		if recipe.Result != current.Name {
 			continue
@@ -253,7 +188,7 @@ func DFS_Single(
 		}
 
 		if ing1.Tier > current.Tier || ing2.Tier > current.Tier {
-			fmt.Printf("Abandoning recipe for %s: ingredient tier too high (%s: %d, %s: %d > %d)\n",
+			fmt.Printf("Abandoning recipe Single for %s: ingredient tier too high (%s: %d, %s: %d > %d)\n",
 				current.Name, ing1.Name, ing1.Tier, ing2.Name, ing2.Tier, current.Tier)
 			continue
 		}
@@ -267,25 +202,36 @@ func DFS_Single(
 		}
 		visitMu.Unlock()
 
-		// Add the recipe
 		visitMu.Lock()
 		current.Children = append(current.Children, recipe)
 		fmt.Printf("Appending recipe for %s, %s + %s\n", current.Name, ing1.Name, ing2.Name)
 		visitMu.Unlock()
 
-		// Stop if both ingredients are tier 0
 		if ing1.Tier == 0 && ing2.Tier == 0 {
 			break
 		}
 
-		// Recurse deeper if necessary
-		if ing1.Tier != 0 {
+		select {
+		case sem <- struct{}{}:
 			wg.Add(1)
-			go DFS_Single(ing1, wg, elements)
+			go func(n *ElementNode) {
+				defer wg.Done()
+				DFS_Multiple(n, wg, elements, depthChan)
+				<-sem // release slot
+			}(ing1)
+		default:
+			DFS_Multiple(ing1, wg, elements, depthChan)
 		}
-		if ing2.Tier != 0 {
+		select {
+		case sem <- struct{}{}:
 			wg.Add(1)
-			go DFS_Single(ing2, wg, elements)
+			go func(n *ElementNode) {
+				defer wg.Done()
+				DFS_Multiple(n, wg, elements, depthChan)
+				<-sem // release slot
+			}(ing2)
+		default:
+			DFS_Multiple(ing2, wg, elements, depthChan)
 		}
 		break // Only use one recipe per element
 	}
@@ -316,6 +262,14 @@ func ToExportableElement(node *ElementNode, res *ExportableElement, visited map[
 	for i := range node.Children {
 		ToExportableRecipe(node.Children[i], &res.Children[i], visited)
 	}
+
+	// if node.Name == "Pressure" {
+	// 	fmt.Printf("Children of Pres: %d\n", len(node.Children))
+	// 	for _, child := range node.Children {
+	// 		fmt.Printf("Child: %s\n", child.Ingredient1.Name)
+	// 		fmt.Printf("Child: %s\n", child.Ingredient2.Name)
+	// 	}
+	// }
 }
 
 func ToExportableRecipe(node *RecipeNode, res *ExportableRecipe, visited map[*ElementNode]bool) {

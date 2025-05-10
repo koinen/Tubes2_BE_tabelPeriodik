@@ -48,6 +48,7 @@ func serve(jsonBytes []byte) {
 			return
 		}
 		atomic.StoreInt32(&recipeLeft, int32(val - 1))
+		atomic.StoreInt32(&channelMax, int32(val))
 
 		fmt.Println("Starting live DFS stream...")
 
@@ -83,6 +84,7 @@ func serve(jsonBytes []byte) {
 		root := elementMap[elmtName]
 		wg := &sync.WaitGroup{}
 		depthChan := make(chan int)
+
 		wg.Add(1)
 		go func() {
 			DFS_Multiple(root, wg, elementMap, depthChan)
@@ -111,7 +113,7 @@ func serve(jsonBytes []byte) {
 			}
 			fmt.Fprintf(w, "data: %s\n\n", wrapped)
 			w.(http.Flusher).Flush()
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(2000 * time.Millisecond)
 		}
 		finalExport := ExportableElement{
 			Name:       root.Name,
@@ -152,6 +154,7 @@ func serve(jsonBytes []byte) {
 		}
 
 		atomic.StoreInt32(&recipeLeft, int32(val - 1))
+		atomic.StoreInt32(&channelMax, int32(val))
 		fmt.Println("Starting DFS for element:", elmtName)
 		elementMap := make(map[string]*ElementNode)
 
@@ -189,7 +192,6 @@ func serve(jsonBytes []byte) {
 		}
 		wg := &sync.WaitGroup{}
 
-		wg.Add(1)
 		DFS_Multiple(root, wg, elementMap, nil)
 		wg.Wait()
 
