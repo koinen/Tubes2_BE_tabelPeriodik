@@ -32,8 +32,7 @@ type ExportableRecipe struct {
 
 var numberVisit int32
 var visitMu sync.Mutex
-var channelMax int32
-var sem = make(chan struct{}, channelMax) // Limit to 10 concurrent goroutines
+var sem chan struct{}
 var recipeLeft int32
 
 func DFS_Multiple(

@@ -48,7 +48,8 @@ func serve(jsonBytes []byte) {
 			return
 		}
 		atomic.StoreInt32(&recipeLeft, int32(val - 1))
-		atomic.StoreInt32(&channelMax, int32(val))
+		sem = make(chan struct{}, val-1)
+		fmt.Println("Recipe left set to:", recipeLeft)
 
 		fmt.Println("Starting live DFS stream...")
 
@@ -154,7 +155,8 @@ func serve(jsonBytes []byte) {
 		}
 
 		atomic.StoreInt32(&recipeLeft, int32(val - 1))
-		atomic.StoreInt32(&channelMax, int32(val))
+		sem = make(chan struct{}, val-1)
+		fmt.Println("Recipe left set to:", recipeLeft)
 		fmt.Println("Starting DFS for element:", elmtName)
 		elementMap := make(map[string]*ElementNode)
 
