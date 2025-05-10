@@ -69,9 +69,12 @@ func main() {
 	exportList := ExportableElement{
 		Name:       root.Name,
 		Attributes: "element",
-		Children:   make([]ExportableRecipe, 0, 1),
+		Children:   make([]ExportableRecipe, 0, len(root.Children)),
 	}
-	ToExportableElement(root, &exportList)
+	fmt.Println("DONE")
+
+	path := map[string]bool{}
+	ToExportableElement(root, &exportList, path)
 
 	jsonOut, err := json.MarshalIndent(exportList, "", "  ")
 	if err != nil {
