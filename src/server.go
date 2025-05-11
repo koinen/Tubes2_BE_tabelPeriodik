@@ -42,6 +42,13 @@ func serve(jsonBytes []byte) {
 		w.Header().Set("Connection", "keep-alive")
 
 		recipeAmount := r.URL.Query().Get("recipeAmount")
+		delay := r.URL.Query().Get("delay")
+		val2, err := strconv.Atoi(delay)
+		if err != nil {
+			http.Error(w, "Invalid delay value", http.StatusBadRequest)
+			return
+		}
+		fmt.Println("Delay value:", val2)
 		val, err := strconv.Atoi(recipeAmount)
 		if err != nil {
 			http.Error(w, "Invalid recipe amount", http.StatusBadRequest)
@@ -114,7 +121,7 @@ func serve(jsonBytes []byte) {
 			}
 			fmt.Fprintf(w, "data: %s\n\n", wrapped)
 			w.(http.Flusher).Flush()
-			time.Sleep(2000 * time.Millisecond)
+			time.Sleep(time.Duration(val2) * time.Millisecond)
 		}
 		finalExport := ExportableElement{
 			Name:       root.Name,
