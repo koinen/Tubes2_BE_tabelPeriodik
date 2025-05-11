@@ -105,7 +105,7 @@ func bfs_single(root *ElementNode, elements map[string]*ElementNode, recipes []R
 	}
 }
 
-func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []RecipeNode) {
+func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []*RecipeNode) {
 	// q := make(chan *ElementNode, 100)
 	visited := make(map[string]bool)
 	var mu sync.Mutex
