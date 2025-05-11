@@ -54,9 +54,9 @@ func DFS_Multiple(
 	current.IsVisited = true
 	visitMu.Unlock()
 
-	if depthChan != nil {
-		depthChan <- current.Tier
-	}
+	// if depthChan != nil {
+	// 	depthChan <- current.Tier
+	// }
 
 	if current.Tier == 0 {
 		return
@@ -82,7 +82,7 @@ func DFS_Multiple(
 			continue
 		}
 
-		if ing1.Tier > current.Tier || ing2.Tier > current.Tier {
+		if ing1.Tier >= current.Tier || ing2.Tier >= current.Tier {
 			continue
 		}
 
@@ -110,6 +110,10 @@ func DFS_Multiple(
 
 		if ing1.Tier == 0 && ing2.Tier == 0 {
 			continue
+		}
+
+		if depthChan != nil {
+			depthChan <- current.Tier
 		}
 
 		select {
@@ -164,9 +168,9 @@ func DFS_Single(
 	current.IsVisited = true
 	visitMu.Unlock()
 
-	if depthChan != nil {
-		depthChan <- current.Tier
-	}
+	// if depthChan != nil {
+	// 	depthChan <- current.Tier
+	// }
 
 	count := atomic.AddInt32(&numberVisit, 1)
 	fmt.Printf("Visiting node Single (%d): %s Tier: %d\n", count, current.Name, current.Tier)
@@ -186,7 +190,7 @@ func DFS_Single(
 			continue
 		}
 
-		if ing1.Tier > current.Tier || ing2.Tier > current.Tier {
+		if ing1.Tier >= current.Tier || ing2.Tier >= current.Tier {
 			fmt.Printf("Abandoning recipe Single for %s: ingredient tier too high (%s: %d, %s: %d > %d)\n",
 				current.Name, ing1.Name, ing1.Tier, ing2.Name, ing2.Tier, current.Tier)
 			continue
@@ -208,6 +212,10 @@ func DFS_Single(
 
 		if ing1.Tier == 0 && ing2.Tier == 0 {
 			break
+		}
+
+		if depthChan != nil {
+			depthChan <- current.Tier
 		}
 
 		select {
@@ -237,18 +245,20 @@ func DFS_Single(
 }
 
 // Converts internal ElementNode to exportable form
-func ToExportableElement(node *ElementNode, res *ExportableElement, visited map[*ElementNode]bool) {
+func ToExportableElement(node *ElementNode, res *ExportableElement, visited map[*ElementNode]*ExportableElement) {
 	if node == nil || !node.IsVisited {
 		return
 	}
 
-	if visited[node] {
+	if _, exists := visited[node]; exists {
 		// prevent infinite cycle
-		res.Name = node.Name
+		res.Name = visited[node].Name
 		res.Attributes = "element"
+		res.Children = visited[node].Children
 		return
 	}
-	visited[node] = true
+
+	visited[node] = res
 
 	res.Name = node.Name
 	res.Attributes = "element"
@@ -271,7 +281,7 @@ func ToExportableElement(node *ElementNode, res *ExportableElement, visited map[
 	// }
 }
 
-func ToExportableRecipe(node *RecipeNode, res *ExportableRecipe, visited map[*ElementNode]bool) {
+func ToExportableRecipe(node *RecipeNode, res *ExportableRecipe, visited map[*ElementNode]*ExportableElement) {
 	if node == nil {
 		return
 	}

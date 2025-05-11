@@ -109,7 +109,7 @@ func serve(jsonBytes []byte) {
 				Attributes: "element",
 				Children:   make([]ExportableRecipe, 0, len(root.Children)),
 			}
-			visitedExport := make(map[*ElementNode]bool)
+			visitedExport := make(map[*ElementNode]*ExportableElement)
 			ToExportableElement(root, &exportList, visitedExport)
 			// Write to file
 			payload := map[string]any{
@@ -128,7 +128,7 @@ func serve(jsonBytes []byte) {
 			Attributes: "element",
 			Children:   make([]ExportableRecipe, 0, len(root.Children)),
 		}
-		visitedExport := make(map[*ElementNode]bool)
+		visitedExport := make(map[*ElementNode]*ExportableElement)
 		ToExportableElement(root, &finalExport, visitedExport)
 
 		finalPayload := map[string]any{
@@ -210,7 +210,7 @@ func serve(jsonBytes []byte) {
 			Attributes: "element",
 			Children:   make([]ExportableRecipe, 0, len(root.Children)),
 		}
-		visitedExport := make(map[*ElementNode]bool)
+		visitedExport := make(map[*ElementNode]*ExportableElement)
 		ToExportableElement(root, &exportList, visitedExport)
 
 		// Write to file
@@ -277,7 +277,7 @@ func serve(jsonBytes []byte) {
 			Attributes: "element",
 			Children:   make([]ExportableRecipe, 0, len(root.Children)),
 		}
-		visitedExport := make(map[*ElementNode]bool)
+		visitedExport := make(map[*ElementNode]*ExportableElement)
 		ToExportableElement(root, &exportList, visitedExport)
 
 		// Write to file
