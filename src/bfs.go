@@ -105,7 +105,7 @@ func bfs_single(root *ElementNode, elements map[string]*ElementNode, recipes []R
 	}
 }
 
-func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []RecipeNode, limitRecipe int) {
+func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []RecipeNode, limitRecipe int, ch chan int) {
 	// q := make(chan *ElementNode, 100)
 	visited := make(map[string]bool)
 	var mu sync.Mutex
@@ -115,7 +115,10 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []RecipeNo
 	visited[root.Name] = true
 	root.IsVisited = true
 	mu.Unlock()
-
+	// var recipeCount int
+	// recipeCount = 1
+	var recipeMu sync.Mutex
+	recipeCount := make(map[string]int)
 	// done := make(chan struct{})
 
 	// const numberofWoker = 4
@@ -138,24 +141,28 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []RecipeNo
 			// wg.Done()
 			// fmt.Println(current.Name)
 			// if current.Tier == 0 {
+
 			// 	continue
 			// }
 
 			wg.Add(1)
 			go func(current *ElementNode) {
 				defer wg.Done()
-				for _, recipe := range recipes {
-					base1, ok1 := elements[recipe.Ingredient1.Name]
-					base2, ok2 := elements[recipe.Ingredient2.Name]
 
-					if !ok1 || !ok2 {
-						continue
-					}
+				for _, recipe := range recipes {
 
 					if recipe.Result != current.Name {
 						continue
 					}
-
+					if recipe.Ingredient1 == nil || recipe.Ingredient2 == nil {
+						fmt.Printf("Skipping recipe with nil ingredient: %+v\n", recipe, recipe.Ingredient1, recipe.Ingredient2)
+						continue
+					}
+					base1, ok1 := elements[recipe.Ingredient1.Name]
+					base2, ok2 := elements[recipe.Ingredient2.Name]
+					if !ok1 || !ok2 {
+						continue
+					}
 					if base1.Tier > current.Tier || base2.Tier > current.Tier {
 
 						continue
@@ -171,46 +178,132 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []RecipeNo
 							ru.Unlock()
 							return
 						}
+						// recipeMu.Lock()
+						// if recipeCount > limitRecipe {
+						// 	mu.Unlock()
+						// 	ru.Unlock()
+						// 	recipeMu.Unlock()
+						// 	return
+						// }
+						exist := false
+						for _, c := range current.Children {
+							if base1.Name == c.Ingredient1.Name && base2.Name == c.Ingredient2.Name {
+								exist = true
+								break
+							}
+						}
+
+						if exist {
+							mu.Unlock()
+							ru.Unlock()
+							continue
+						}
 						count++
+						// recipeCount++
+						// if len(current.Children) > 0 {
+
+						// 	recipeCount = recipeCount / len(current.Children)
+						// 	recipeCount = recipeCount * (len(current.Children) + 1)
+						// }
+						// recipeMu.Unlock()
 
 						current.Children = append(current.Children, &RecipeNode{
 							Result:      current.Name,
-							Ingredient1: base1,
-							Ingredient2: base2,
+							Ingredient1: elements[base1.Name],
+							Ingredient2: elements[base2.Name],
 						})
+						recipeMu.Lock()
+						recipeCount[current.Name] += 1
+						recipeMu.Unlock()
 
 					} else {
-						current.Children = append(current.Children, &RecipeNode{
+						exist := false
+						for _, c := range current.Children {
+							if base1.Name == c.Ingredient1.Name && base2.Name == c.Ingredient2.Name {
+								exist = true
+								break
+							}
+						}
+						// recipeMu.Lock()
+						// if recipeCount > limitRecipe {
+						// 	mu.Unlock()
+						// 	ru.Unlock()
+						// 	recipeMu.Unlock()
+						// 	return
+						// }
+						// recipeCount++
+						// if len(current.Children) > 0 {
+
+						// 	recipeCount = recipeCount / len(current.Children)
+						// 	recipeCount = recipeCount * (len(current.Children) + 1)
+						// }
+						// recipeMu.Unlock()
+
+						if exist {
+							mu.Unlock()
+							ru.Unlock()
+							continue
+						}
+						res := RecipeNode{
 							Result:      current.Name,
-							Ingredient1: base1,
-							Ingredient2: base2,
-						})
+							Ingredient1: elements[base1.Name],
+							Ingredient2: elements[base2.Name],
+						}
+						recipeMu.Lock()
+
+						current_count := 1
+						recipeCount[current.Name] += 1
+						for _, v := range recipeCount {
+							// if v >= 1 {
+							current_count *= v
+							// }
+						}
+
+						if current_count > limitRecipe {
+							recipeCount[current.Name] -= 1
+
+							ru.Unlock()
+							mu.Unlock()
+							recipeMu.Unlock()
+							break
+						}
+						recipeMu.Unlock()
+						current.Children = append(current.Children, &res)
 					}
 					ru.Unlock()
 					mu.Unlock()
 					//BFS
 					mu.Lock()
-					if !visited[base1.Name] {
+					if len(base1.Children) == 0 {
 						// fmt.Println("Enque: ", base1.Name)
 						//Enqueue
-						visited[base1.Name] = true
-						base1.IsVisited = true
 						// wg.Add(1)
+						// if base1.Name == "Stone" {
+						// 	fmt.Println("STONE")
+						// }
 						nextLevel = append(nextLevel, base1)
+					} else {
+						fmt.Println("SUDAH")
 					}
+					visited[base1.Name] = true
+					base1.IsVisited = true
 
-					if !visited[base2.Name] {
+					if len(base2.Children) == 0 {
 						//Enqueue
-						visited[base2.Name] = true
-						base2.IsVisited = true
 						// wg.Add(1)
 						nextLevel = append(nextLevel, base2)
 					}
+					visited[base2.Name] = true
+					base2.IsVisited = true
 					mu.Unlock()
 				}
 			}(current)
 		}
 		wg.Wait()
+		if ch != nil {
+			fmt.Println("Level: ", currentLevel[0].Tier)
+			ch <- currentLevel[0].Tier
+		}
 		currentLevel = nextLevel
 		// }()
 		// if len(root.Children) >= limitRecipe {
@@ -224,6 +317,11 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []RecipeNo
 	// }()
 
 	// <-done
+
+	if ch != nil {
+		fmt.Println("DONE")
+		close(ch)
+	}
 }
 
 func (n ElementNode) display() {
@@ -235,4 +333,45 @@ func (n ElementNode) display() {
 		fmt.Println(i.Ingredient2.Name)
 	}
 	fmt.Println("END")
+}
+
+func ToExportableElement3(node *ElementNode, visited map[*ElementNode]*ExportableElement) *ExportableElement {
+	if node == nil || !node.IsVisited {
+		return nil
+	}
+
+	// Already visited? Return the pointer directly to avoid recursion
+	if cached, ok := visited[node]; ok {
+		return cached
+	}
+
+	exported := &ExportableElement{
+		Name:       node.Name,
+		Attributes: "element",
+		Children:   []ExportableRecipe{},
+	}
+	// Put early in map to avoid recursive cycles
+	visited[node] = exported
+
+	if node.Tier != 0 {
+		for _, recipeNode := range node.Children {
+			exported.Children = append(exported.Children, *ToExportableRecipe3(recipeNode, visited))
+		}
+	}
+
+	return exported
+}
+
+func ToExportableRecipe3(recipe *RecipeNode, visited map[*ElementNode]*ExportableElement) *ExportableRecipe {
+	if recipe == nil {
+		return nil
+	}
+
+	return &ExportableRecipe{
+		Attributes: "recipe",
+		Children: []ExportableElement{
+			*ToExportableElement3(recipe.Ingredient1, visited),
+			*ToExportableElement3(recipe.Ingredient2, visited),
+		},
+	}
 }
