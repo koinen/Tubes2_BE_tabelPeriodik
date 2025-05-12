@@ -340,12 +340,14 @@ func serve(jsonBytes []byte) {
 			w.(http.Flusher).Flush()
 			time.Sleep(500 * time.Millisecond)
 		}
-		finalExport := ExportableElement{
-			Name:       root.Name,
-			Attributes: "element",
-			Children:   make([]ExportableRecipe, 0, len(root.Children)),
-		}
-		// visitedExport := make(map[*ElementNode]bool)
+		visited := make(map[*ElementNode]*ExportableElement)
+		finalExport := ToExportableElement3(root, visited)
+		// finalExport := ExportableElement{
+		// 	Name:       root.Name,
+		// 	Attributes: "element",
+		// 	Children:   make([]ExportableRecipe, 0, len(root.Children)),
+		// }
+		// // visitedExport := make(map[*ElementNode]bool)
 		// ToExportableElement2(root, &finalExport, visitedExport)
 
 		finalPayload := map[string]any{
