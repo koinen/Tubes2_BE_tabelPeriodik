@@ -115,6 +115,8 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []*RecipeN
 	root.IsVisited = true
 	mu.Unlock()
 
+	fmt.Printf("Starting BFS for %s\n", root.Name)
+
 	// done := make(chan struct{})
 
 	// const numberofWoker = 4
@@ -171,6 +173,7 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []*RecipeN
 						base1.IsVisited = true
 						// wg.Add(1)
 						nextLevel = append(nextLevel, base1)
+						fmt.Printf("Enqueue: %s\n", base1.Name)
 					}
 
 					if !visited[base2.Name] {
@@ -179,6 +182,7 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []*RecipeN
 						base2.IsVisited = true
 						// wg.Add(1)
 						nextLevel = append(nextLevel, base2)
+						fmt.Printf("Enqueue: %s\n", base2.Name)
 					}
 					mu.Unlock()
 				}

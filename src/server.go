@@ -106,7 +106,7 @@ func serve(jsonBytes []byte) {
 		for _ = range depthChan {
 			exportList := ExportableElement{
 				Name:       root.Name,
-				Attributes: "element",
+				Attributes: map[string]string{"Type": "element", "Side": "Right"},
 				Children:   make([]ExportableRecipe, 0, len(root.Children)),
 			}
 			visitedExport := make(map[*ElementNode]*ExportableElement)
@@ -125,7 +125,7 @@ func serve(jsonBytes []byte) {
 		}
 		finalExport := ExportableElement{
 			Name:       root.Name,
-			Attributes: "element",
+			Attributes: map[string]string{"Type": "element", "Side": "Right"},
 			Children:   make([]ExportableRecipe, 0, len(root.Children)),
 		}
 		visitedExport := make(map[*ElementNode]*ExportableElement)
@@ -207,7 +207,7 @@ func serve(jsonBytes []byte) {
 		// Export tree
 		exportList := ExportableElement{
 			Name:       root.Name,
-			Attributes: "element",
+			Attributes: map[string]string{"Type": "element", "Side": "Right"},
 			Children:   make([]ExportableRecipe, 0, len(root.Children)),
 		}
 		visitedExport := make(map[*ElementNode]*ExportableElement)
@@ -274,7 +274,7 @@ func serve(jsonBytes []byte) {
 		// Export tree
 		exportList := ExportableElement{
 			Name:       root.Name,
-			Attributes: "element",
+			Attributes: map[string]string{"Type": "element", "Side": "Right"},
 			Children:   make([]ExportableRecipe, 0, len(root.Children)),
 		}
 		visitedExport := make(map[*ElementNode]*ExportableElement)
@@ -381,7 +381,7 @@ func serve(jsonBytes []byte) {
 
 		exportList := ExportableElement{
 			Name:       root.Name,
-			Attributes: "element",
+			Attributes: map[string]string{"Type": "element", "Side": "Right"},
 			Children:   make([]ExportableRecipe, 0, len(root.Children)),
 		}
 		exportList.Children = make([]ExportableRecipe, 0, len(root.Children))
@@ -396,6 +396,148 @@ func serve(jsonBytes []byte) {
 		fmt.Println("Exporting to JSON...")
 		w.Write(jsonOut)
 	})
+
+	// addRouteWithCORS("/live-Bidirectional/", func(w http.ResponseWriter, r *http.Request) {
+	// 	w.Header().Set("Content-Type", "text/event-stream")
+	// 	w.Header().Set("Cache-Control", "no-cache")
+	// 	w.Header().Set("Connection", "keep-alive")
+
+	// 	recipeAmount := r.URL.Query().Get("recipeAmount")
+	// 	left := r.URL.Query().Get("left")
+	// 	right := r.URL.Query().Get("right")
+	// 	delay := r.URL.Query().Get("delay")
+	// 	val2, err := strconv.Atoi(delay)
+	// 	if err != nil {
+	// 		http.Error(w, "Invalid delay value", http.StatusBadRequest)
+	// 		return
+	// 	}
+	// 	fmt.Println("Delay value:", val2)
+	// 	val, err := strconv.Atoi(recipeAmount)
+	// 	if err != nil {
+	// 		http.Error(w, "Invalid recipe amount", http.StatusBadRequest)
+	// 		return
+	// 	}
+	// 	atomic.StoreInt32(&recipeLeft, int32(val - 1))
+	// 	sem = make(chan struct{}, val-1)
+	// 	fmt.Println("Recipe left set to:", recipeLeft)
+
+	// 	elmtName := r.URL.Path[len("/live-Bidirectional/"):]
+	// 	if elmtName == "" {
+	// 		http.Error(w, "Element name is required", http.StatusBadRequest)
+	// 		return
+	// 	}
+	// 	fmt.Println("Starting Bidirect Live for element:", elmtName)
+	// 	elementMap := make(map[string]*ElementNode)
+	// 	var allRecipes []*RecipeNode
+
+	// 	for _, el := range rawElements {
+	// 		elementMap[el.Name] = &ElementNode{
+	// 			Name:     el.Name,
+	// 			Tier:     el.Tier,
+	// 			Children: []*RecipeNode{},
+	// 		}
+	// 	}
+
+	// 	for _, el := range rawElements {
+	// 		for _, r := range el.Recipes {
+	// 			ing1 := elementMap[r[0]]
+	// 			ing2 := elementMap[r[1]]
+	// 			if ing1 == nil || ing2 == nil {
+	// 				// fmt.Printf("Skipping invalid recipe for %s: missing ingredient(s) %s or %s\n", el.Name, r[0], r[1])
+	// 				continue
+	// 			}
+	// 			recipe := &RecipeNode{
+	// 				Result:      el.Name,
+	// 				Ingredient1: ing1,
+	// 				Ingredient2: ing2,
+	// 			}
+	// 			allRecipes = append(allRecipes, recipe)
+	// 			elementMap[el.Name].Children = append(elementMap[el.Name].Children, recipe)
+	// 		}
+	// 	}
+
+	// 	// root := &ElementNode{Name: elmtName, Tier: 1, Children: []*RecipeNode{}}
+	// 	root := elementMap[elmtName]
+	// 	wg := &sync.WaitGroup{}
+	// 	basic := []*ElementNode{}
+	// 	basic = append(basic, elementMap["Earth"])
+	// 	basic = append(basic, elementMap["Fire"])
+	// 	basic = append(basic, elementMap["Air"])
+	// 	basic = append(basic, elementMap["Water"])
+	// 	done := make(chan struct{})
+	// 	depthChan := make(chan int)
+
+
+	// 	copyAllRecipes := make([]*RecipeNode, len(allRecipes))
+	// 	copy(copyAllRecipes, allRecipes)
+	// 	// depthChanLeft := make(chan int)
+	// 	if left == "BFS" {
+	// 		wg.Add(1)
+	// 		go func() {
+	// 			defer wg.Done()
+	// 			Bidirect_Left_BFS(basic, root, elementMap, copyAllRecipes, done)
+	// 			fmt.Println("[BFS Left] Done")
+	// 		}()
+	// 	} else {
+	// 		wg.Add(1)
+	// 		go func() {
+	// 			defer wg.Done()
+	// 			Bidirect_Left_DFS(basic, root, elementMap, copyAllRecipes, done)
+	// 			fmt.Println("[DFS Left] Done")
+	// 		}()
+	// 	}
+	// 	if right == "DFS" {
+	// 		Bidirect_Right_DFS(root, wg, elementMap, depthChan, done)
+	// 	} else {
+	// 		Bidirect_Right_BFS(root, wg, elementMap, allRecipes, depthChan, done)
+	// 	}
+	// 	go func() {
+	// 		wg.Wait()
+	// 		close(depthChan)
+	// 		// close(depthChanLeft)
+	// 		fmt.Println("[MAIN] completed")
+	// 	}()
+
+	// 	for _ = range depthChan {
+	// 		// exportList := ExportableElement{
+	// 		// 	Name:       root.Name,
+	// 		// 	Attributes: map[string]string{"Type": "element", "Side": "Right"},
+	// 		// 	Children:   make([]ExportableRecipe, 0, len(root.Children)),
+	// 		// }
+	// 		// visitedExport := make(map[*ElementNode]*ExportableElement)
+	// 		// ToExportableElement(root, &exportList, visitedExport)
+	// 		visited := make(map[*ElementNode]*ExportableElement)
+	// 		export := ToExportableElement3(root, visited)
+	// 		// Write to file
+	// 		payload := map[string]any{
+	// 			"depth": export, // or "data": exportList
+	// 		}
+	// 		wrapped, err := json.Marshal(payload)
+	// 		if err != nil {
+	// 			panic(err)
+	// 		}
+	// 		fmt.Fprintf(w, "data: %s\n\n", wrapped)
+	// 		w.(http.Flusher).Flush()
+	// 		time.Sleep(time.Duration(val2) * time.Millisecond)
+	// 	}
+	// 	// finalExport := ExportableElement{
+	// 	// 	Name:       root.Name,
+	// 	// 	Attributes: map[string]string{"Type": "element", "Side": "Right"},
+	// 	// 	Children:   make([]ExportableRecipe, 0, len(root.Children)),
+	// 	// }
+	// 	visited := make(map[*ElementNode]*ExportableElement)
+	// 	finalExport := ToExportableElement3(root, visited)
+
+	// 	finalPayload := map[string]any{
+	// 		"depth": finalExport,
+	// 	}
+	// 	finalWrapped, err := json.Marshal(finalPayload)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	fmt.Fprintf(w, "data: %s\n\n", finalWrapped)
+	// 	w.(http.Flusher).Flush()
+	// })
 
 	addRouteWithCORS(("/example-stream"), func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
