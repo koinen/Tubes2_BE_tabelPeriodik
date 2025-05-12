@@ -159,7 +159,7 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []*RecipeN
 						continue
 					}
 					if recipe.Ingredient1 == nil || recipe.Ingredient2 == nil {
-						fmt.Printf("Skipping recipe with nil ingredient: %+v\n", recipe)
+						// fmt.Printf("Skipping recipe with nil ingredient: %+v\n", recipe)
 						continue
 					}
 					base1, ok1 := elements[recipe.Ingredient1.Name]
@@ -287,26 +287,25 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []*RecipeN
 						// 	fmt.Println("STONE")
 						// }
 						nextLevel = append(nextLevel, base1)
-					} else {
-						fmt.Println("SUDAH")
+						visited[base1.Name] = true
+						base1.IsVisited = true
 					}
-					visited[base1.Name] = true
-					base1.IsVisited = true
 
 					if !base2.IsVisited {
 						//Enqueue
 						// wg.Add(1)
 						nextLevel = append(nextLevel, base2)
 						fmt.Printf("Enqueue: %s\n", base2.Name)
+						visited[base2.Name] = true
+						base2.IsVisited = true
 					}
-					visited[base2.Name] = true
-					base2.IsVisited = true
 					mu.Unlock()
 				}
 			}(current)
 		}
 		wg.Wait()
 
+		fmt.Println("Level: ", currentLevel[0].Tier)
 		currentLevel = nextLevel
 		// }()
 		// if len(root.Children) >= limitRecipe {
