@@ -42,12 +42,21 @@ func serve(jsonBytes []byte) {
 		w.Header().Set("Connection", "keep-alive")
 
 		recipeAmount := r.URL.Query().Get("recipeAmount")
+		delay := r.URL.Query().Get("delay")
+		val2, err := strconv.Atoi(delay)
+		if err != nil {
+			http.Error(w, "Invalid delay value", http.StatusBadRequest)
+			return
+		}
+		fmt.Println("Delay value:", val2)
 		val, err := strconv.Atoi(recipeAmount)
 		if err != nil {
 			http.Error(w, "Invalid recipe amount", http.StatusBadRequest)
 			return
 		}
 		atomic.StoreInt32(&recipeLeft, int32(val-1))
+		sem = make(chan struct{}, val-1)
+		fmt.Println("Recipe left set to:", recipeLeft)
 
 		fmt.Println("Starting live DFS stream...")
 
@@ -83,6 +92,7 @@ func serve(jsonBytes []byte) {
 		root := elementMap[elmtName]
 		wg := &sync.WaitGroup{}
 		depthChan := make(chan int)
+
 		wg.Add(1)
 		go func() {
 			DFS_Multiple(root, wg, elementMap, depthChan)
@@ -99,7 +109,7 @@ func serve(jsonBytes []byte) {
 				Attributes: "element",
 				Children:   make([]ExportableRecipe, 0, len(root.Children)),
 			}
-			visitedExport := make(map[*ElementNode]bool)
+			visitedExport := make(map[*ElementNode]*ExportableElement)
 			ToExportableElement(root, &exportList, visitedExport)
 			// Write to file
 			payload := map[string]any{
@@ -111,14 +121,14 @@ func serve(jsonBytes []byte) {
 			}
 			fmt.Fprintf(w, "data: %s\n\n", wrapped)
 			w.(http.Flusher).Flush()
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(time.Duration(val2) * time.Millisecond)
 		}
 		finalExport := ExportableElement{
 			Name:       root.Name,
 			Attributes: "element",
 			Children:   make([]ExportableRecipe, 0, len(root.Children)),
 		}
-		visitedExport := make(map[*ElementNode]bool)
+		visitedExport := make(map[*ElementNode]*ExportableElement)
 		ToExportableElement(root, &finalExport, visitedExport)
 
 		finalPayload := map[string]any{
@@ -152,6 +162,8 @@ func serve(jsonBytes []byte) {
 		}
 
 		atomic.StoreInt32(&recipeLeft, int32(val-1))
+		sem = make(chan struct{}, val-1)
+		fmt.Println("Recipe left set to:", recipeLeft)
 		fmt.Println("Starting DFS for element:", elmtName)
 		elementMap := make(map[string]*ElementNode)
 
@@ -189,7 +201,6 @@ func serve(jsonBytes []byte) {
 		}
 		wg := &sync.WaitGroup{}
 
-		wg.Add(1)
 		DFS_Multiple(root, wg, elementMap, nil)
 		wg.Wait()
 
@@ -199,7 +210,7 @@ func serve(jsonBytes []byte) {
 			Attributes: "element",
 			Children:   make([]ExportableRecipe, 0, len(root.Children)),
 		}
-		visitedExport := make(map[*ElementNode]bool)
+		visitedExport := make(map[*ElementNode]*ExportableElement)
 		ToExportableElement(root, &exportList, visitedExport)
 
 		// Write to file
