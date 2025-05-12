@@ -54,10 +54,6 @@ func DFS_Multiple(
 	current.IsVisited = true
 	visitMu.Unlock()
 
-	// if depthChan != nil {
-	// 	depthChan <- current.Tier
-	// }
-
 	if current.Tier == 0 {
 		return
 	}
@@ -65,16 +61,19 @@ func DFS_Multiple(
 	count := atomic.AddInt32(&numberVisit, 1)
 	fmt.Printf("Visiting node Multi (%d): %s Tier: %d RecipeLeft: %d\n", count, current.Name, current.Tier, atomic.LoadInt32(&recipeLeft))
 
+	// fmt.Printf("Recipe len: %d", len(current.Children))
 	ALLrecipes := make([]*RecipeNode, len(current.Children))
 	copy(ALLrecipes, current.Children)
 	current.Children = []*RecipeNode{}
+
+	// fmt.Printf("Recipe len: %d", len(ALLrecipes))
 
 	fistAdd := true
 	for _, recipe := range ALLrecipes {
 		if recipe.Result != current.Name {
 			continue
 		}
-		// fmt.Printf("Processing recipe %d for %s\n", i, current.Name)
+		// fmt.Printf("Processing recipe for %s\n", current.Name)
 
 		ing1 := recipe.Ingredient1
 		ing2 := recipe.Ingredient2
@@ -168,10 +167,6 @@ func DFS_Single(
 	current.IsVisited = true
 	visitMu.Unlock()
 
-	// if depthChan != nil {
-	// 	depthChan <- current.Tier
-	// }
-
 	count := atomic.AddInt32(&numberVisit, 1)
 	fmt.Printf("Visiting node Single (%d): %s Tier: %d\n", count, current.Name, current.Tier)
 
@@ -183,6 +178,8 @@ func DFS_Single(
 		if recipe.Result != current.Name {
 			continue
 		}
+
+		// fmt.Printf("Processing recipe for %s\n", current.Name)
 
 		ing1, ok1 := elements[recipe.Ingredient1.Name]
 		ing2, ok2 := elements[recipe.Ingredient2.Name]
