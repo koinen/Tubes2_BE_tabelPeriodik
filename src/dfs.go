@@ -42,7 +42,7 @@ func DFS_Multiple(
 	elements map[string]*ElementNode,
 	depthChan chan int,
 ) {
-	defer func (){
+	defer func() {
 		if depthChan != nil {
 			fmt.Printf("DFS_Multiple: %s\n", current.Name)
 			depthChan <- current.Tier
@@ -155,7 +155,7 @@ func DFS_Single(
 	elements map[string]*ElementNode,
 	depthChan chan int,
 ) {
-	defer func (){
+	defer func() {
 		if depthChan != nil {
 			depthChan <- current.Tier
 		}

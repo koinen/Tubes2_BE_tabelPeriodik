@@ -24,16 +24,15 @@ func Bidirect_Right_DFS(
 
 func Bidirect_Right_BFS(
 	root *ElementNode,
+	limitRecipe int,
 	wg *sync.WaitGroup,
 	elementMap map[string]*ElementNode,
 	allRecipes []*RecipeNode,
 	depthChan chan int,
 	doneChan chan struct{},
 ) {
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		bfs(root, elementMap, allRecipes)
+		bfs(root, elementMap, allRecipes, limitRecipe, depthChan)
 		fmt.Println("[BFS Right] Done")
 		close(doneChan) // Notify BFS
 	}()
