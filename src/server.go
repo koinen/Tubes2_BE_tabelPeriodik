@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
-	"time"
 	"sync/atomic"
-  "strconv"
+	"time"
 )
 
 func withCORS(next http.Handler) http.Handler {
@@ -47,7 +47,7 @@ func serve(jsonBytes []byte) {
 			http.Error(w, "Invalid recipe amount", http.StatusBadRequest)
 			return
 		}
-		atomic.StoreInt32(&recipeLeft, int32(val - 1))
+		atomic.StoreInt32(&recipeLeft, int32(val-1))
 
 		fmt.Println("Starting live DFS stream...")
 
@@ -143,15 +143,15 @@ func serve(jsonBytes []byte) {
 		fmt.Println("Recipe amount parameter:", recipeAmount)
 		val, err := strconv.Atoi(recipeAmount)
 		if err != nil {
-		http.Error(w, "Invalid recipe amount", http.StatusBadRequest)
-		return
+			http.Error(w, "Invalid recipe amount", http.StatusBadRequest)
+			return
 		}
 		if elmtName == "" {
 			http.Error(w, "Element name is required", http.StatusBadRequest)
 			return
 		}
 
-		atomic.StoreInt32(&recipeLeft, int32(val - 1))
+		atomic.StoreInt32(&recipeLeft, int32(val-1))
 		fmt.Println("Starting DFS for element:", elmtName)
 		elementMap := make(map[string]*ElementNode)
 
@@ -214,10 +214,146 @@ func serve(jsonBytes []byte) {
 	addRouteWithCORS("/BFS/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		elmtName := r.URL.Path[len("/BFS/"):]
+		query := r.URL.Query().Get("recipes")
+		live := r.URL.Query().Get("live")
+		recipeAmount := r.URL.Query().Get("recipeAmount")
+		fmt.Println("Query parameter:", query)
+		fmt.Println("Live parameter:", live)
+		fmt.Println("Recipe amount parameter:", recipeAmount)
+		val, err := strconv.Atoi(recipeAmount)
 		if elmtName == "" {
 			http.Error(w, "Element name is required", http.StatusBadRequest)
 			return
 		}
+		if elmtName == "" {
+			http.Error(w, "Element name is required", http.StatusBadRequest)
+			return
+		}
+
+		atomic.StoreInt32(&recipeLeft, int32(val-1))
+		fmt.Println("Starting BFS for element:", elmtName)
+		elementMap := make(map[string]*ElementNode)
+		var allRecipes []RecipeNode
+
+		for _, el := range rawElements {
+			elementMap[el.Name] = &ElementNode{
+				Name:     el.Name,
+				Tier:     el.Tier,
+				Children: []*RecipeNode{},
+			}
+			for _, r := range el.Recipes {
+				if len(r) == 2 {
+					allRecipes = append(allRecipes, RecipeNode{
+						Result:      el.Name,
+						Ingredient1: &ElementNode{Name: r[0], IsVisited: false, Children: []*RecipeNode{}},
+						Ingredient2: &ElementNode{Name: r[1], IsVisited: false, Children: []*RecipeNode{}},
+					})
+				}
+			}
+		}
+		root := elementMap[elmtName]
+		bfs(root, elementMap, allRecipes, val, nil)
+		fmt.Println("Banyak resep: ", len(root.Children))
+
+		// exportList := ExportableElement{
+		// 	Name:       root.Name,
+		// 	Attributes: "element",
+		// 	Children:   make([]ExportableRecipe, 0, len(root.Children)),
+		// }
+		visited := make(map[*ElementNode]*ExportableElement)
+		exported := ToExportableElement2(root, visited)
+
+		// Write to file
+		jsonOut, err := json.Marshal(exported)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("Exporting to JSON...")
+		w.Write(jsonOut)
+	})
+
+	addRouteWithCORS("/live-BFS/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+
+		recipeAmount := r.URL.Query().Get("recipeAmount")
+		val, err := strconv.Atoi(recipeAmount)
+		if err != nil {
+			http.Error(w, "Invalid recipe amount", http.StatusBadRequest)
+			return
+		}
+		atomic.StoreInt32(&recipeLeft, int32(val-1))
+
+		fmt.Println("Starting live BFS stream...")
+
+		elmtName := r.URL.Path[len("/live-BFS/"):]
+		if elmtName == "" {
+			http.Error(w, "Element name is required", http.StatusBadRequest)
+			return
+		}
+
+		elementMap := make(map[string]*ElementNode)
+		var allRecipes []RecipeNode
+
+		for _, el := range rawElements {
+			elementMap[el.Name] = &ElementNode{
+				Name:     el.Name,
+				Tier:     el.Tier,
+				Children: []*RecipeNode{},
+			}
+			for _, r := range el.Recipes {
+				if len(r) == 2 {
+					allRecipes = append(allRecipes, RecipeNode{
+						Result:      el.Name,
+						Ingredient1: &ElementNode{Name: r[0], IsVisited: false, Children: []*RecipeNode{}},
+						Ingredient2: &ElementNode{Name: r[1], IsVisited: false, Children: []*RecipeNode{}},
+					})
+				}
+			}
+		}
+		ch := make(chan int)
+		root := elementMap[elmtName]
+
+		go bfs(root, elementMap, allRecipes, val, ch)
+
+		for _ = range ch {
+			exportList := ExportableElement{
+				Name:       root.Name,
+				Attributes: "element",
+				Children:   make([]ExportableRecipe, 0, len(root.Children)),
+			}
+			visitedExport := make(map[*ElementNode]bool)
+			ToExportableElement(root, &exportList, visitedExport)
+			// Write to file
+			payload := map[string]any{
+				"depth": exportList, // or "data": exportList
+			}
+			wrapped, err := json.Marshal(payload)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Fprintf(w, "data: %s\n\n", wrapped)
+			w.(http.Flusher).Flush()
+			time.Sleep(500 * time.Millisecond)
+		}
+		finalExport := ExportableElement{
+			Name:       root.Name,
+			Attributes: "element",
+			Children:   make([]ExportableRecipe, 0, len(root.Children)),
+		}
+		visitedExport := make(map[*ElementNode]bool)
+		ToExportableElement(root, &finalExport, visitedExport)
+
+		finalPayload := map[string]any{
+			"depth": finalExport,
+		}
+		finalWrapped, err := json.Marshal(finalPayload)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Fprintf(w, "data: %s\n\n", finalWrapped)
+		w.(http.Flusher).Flush()
 	})
 
 	addRouteWithCORS("/Bidirect/", func(w http.ResponseWriter, r *http.Request) {
