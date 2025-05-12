@@ -262,20 +262,16 @@ func serve(jsonBytes []byte) {
 				}
 			}
 		}
-		root := elementMap[elmtName]
+		root := &ElementNode{Name: elmtName, Tier: elementMap[elmtName].Tier, Children: []*RecipeNode{}}
+		fmt.Println("Starting")
 		bfs(root, elementMap, allRecipes, val, nil)
 		fmt.Println("Banyak resep: ", len(root.Children))
 
-		// exportList := ExportableElement{
-		// 	Name:       root.Name,
-		// 	Attributes: "element",
-		// 	Children:   make([]ExportableRecipe, 0, len(root.Children)),
-		// }
 		visited := make(map[*ElementNode]*ExportableElement)
-		exported := ToExportableElement2(root, visited)
+		export := ToExportableElement3(root, visited)
 
 		// Write to file
-		jsonOut, err := json.Marshal(exported)
+		jsonOut, err := json.Marshal(export)
 		if err != nil {
 			panic(err)
 		}
@@ -284,6 +280,7 @@ func serve(jsonBytes []byte) {
 	})
 
 	addRouteWithCORS("/live-BFS/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("run")
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
@@ -324,21 +321,16 @@ func serve(jsonBytes []byte) {
 			}
 		}
 		ch := make(chan int)
-		root := elementMap[elmtName]
+		root := &ElementNode{Name: elmtName, Tier: elementMap[elmtName].Tier, Children: []*RecipeNode{}}
 
 		go bfs(root, elementMap, allRecipes, val, ch)
 
 		for _ = range ch {
-			exportList := ExportableElement{
-				Name:       root.Name,
-				Attributes: "element",
-				Children:   make([]ExportableRecipe, 0, len(root.Children)),
-			}
-			visitedExport := make(map[*ElementNode]bool)
-			ToExportableElement(root, &exportList, visitedExport)
+			visited := make(map[*ElementNode]*ExportableElement)
+			export := ToExportableElement3(root, visited)
 			// Write to file
 			payload := map[string]any{
-				"depth": exportList, // or "data": exportList
+				"depth": export, // or "data": exportList
 			}
 			wrapped, err := json.Marshal(payload)
 			if err != nil {
@@ -353,8 +345,8 @@ func serve(jsonBytes []byte) {
 			Attributes: "element",
 			Children:   make([]ExportableRecipe, 0, len(root.Children)),
 		}
-		visitedExport := make(map[*ElementNode]bool)
-		ToExportableElement(root, &finalExport, visitedExport)
+		// visitedExport := make(map[*ElementNode]bool)
+		// ToExportableElement2(root, &finalExport, visitedExport)
 
 		finalPayload := map[string]any{
 			"depth": finalExport,
