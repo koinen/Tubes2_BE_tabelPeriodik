@@ -242,58 +242,7 @@ func DFS_Single(
 }
 
 // Converts internal ElementNode to exportable form
-func ToExportableElement2(node *ElementNode, visited map[*ElementNode]*ExportableElement) *ExportableElement {
-	if node == nil || !node.IsVisited {
-		return nil
-	}
-
-	// If cached, return the same element
-	if cached, ok := visited[node]; ok {
-		return cached
-	}
-
-	// Create a new ExportableElement if not visited before
-	res := &ExportableElement{
-		Name:       node.Name,
-		Attributes: "element",
-	}
-	visited[node] = res
-
-	if node.Tier == 0 {
-		return res
-	}
-
-	// Process all children (recipes)
-	res.Children = []ExportableRecipe{}
-	for _, i := range node.Children {
-		// Call ToExportableRecipe for each child, correctly assigning it to res.Children[i]
-		r := ToExportableRecipe2(i, visited)
-		res.Children = append(res.Children, *r)
-	}
-
-	return res
-}
-
-func ToExportableRecipe2(node *RecipeNode, visited map[*ElementNode]*ExportableElement) *ExportableRecipe {
-	if node == nil {
-		return nil
-	}
-
-	// Prepare ExportableRecipe
-	res := &ExportableRecipe{
-		Attributes: "recipe",
-	}
-
-	// Add ingredients (which are ExportableElement)
-	res.Children = []ExportableElement{
-		*ToExportableElement2(node.Ingredient1, visited),
-		*ToExportableElement2(node.Ingredient2, visited),
-	}
-
-	return res
-}
-
-func ToExportableElement(node *ElementNode, res *ExportableElement, visited map[*ElementNode]bool) {
+func ToExportableElement(node *ElementNode, res *ExportableElement, visited map[*ElementNode]*ExportableElement) {
 	if node == nil || !node.IsVisited {
 		return
 	}
