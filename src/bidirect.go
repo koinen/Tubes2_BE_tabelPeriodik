@@ -76,7 +76,6 @@ func Bidirect_Left_BFS(
 			in1 := recipe.Ingredient1
 			in2 := recipe.Ingredient2
 			result := allElement[recipe.Result]
-			fmt.Printf("[Worker %d] Checking recipe: %s (%d) + %s (%d) -> %s\n", id, in1.Name, in1.Tier, in2.Name, in2.Tier, result.Name)
 
 
 			if result.IsVisited {
@@ -99,6 +98,8 @@ func Bidirect_Left_BFS(
 				mu.Unlock()
 				continue
 			}
+
+			fmt.Printf("[Worker %d] Checking recipe: %s (%d) + %s (%d) -> %s\n", id, in1.Name, in1.Tier, in2.Name, in2.Tier, result.Name)
 
 			result.IsVisited = true
 			result.Left = true

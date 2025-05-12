@@ -13,6 +13,7 @@ type Element struct {
 	Name    string      `json:"name"`
 	Tier    int         `json:"tier"`
 	Recipes [][2]string `json:"recipes"`
+	ImgSrc  string      `json:"img_src"`
 }
 
 func scrape() []Element {
@@ -55,6 +56,15 @@ func scrape() []Element {
 			fmt.Println("Skipping Time element")
 			return
 		}
+
+		imgSrc, exists := tds.Eq(0).Find("img").First().Attr("data-src")
+		if !exists {
+			imgSrc = tds.Eq(0).Find("img").First().AttrOr("src", "")
+		}
+		elmt.ImgSrc = imgSrc
+
+
+		// fmt.Printf("Element: %s, ImgSrc: %s\n", elmt.Name, imgSrc)
 
 		elmt.Tier = currentTier
 		tds.Eq(1).Find("li").Each(func(i int, li *goquery.Selection) {

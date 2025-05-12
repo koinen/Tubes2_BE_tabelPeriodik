@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"math/rand"
 )
 
 func withCORS(next http.Handler) http.Handler {
@@ -70,6 +71,7 @@ func serve(jsonBytes []byte) {
 		for _, el := range rawElements {
 			elementMap[el.Name] = &ElementNode{
 				Name:     el.Name,
+				ImgSrc:   el.ImgSrc,
 				Tier:     el.Tier,
 				Children: []*RecipeNode{},
 			}
@@ -170,6 +172,7 @@ func serve(jsonBytes []byte) {
 		for _, el := range rawElements {
 			elementMap[el.Name] = &ElementNode{
 				Name:     el.Name,
+				ImgSrc:   el.ImgSrc,
 				Tier:     el.Tier,
 				Children: []*RecipeNode{},
 			}
@@ -247,28 +250,31 @@ func serve(jsonBytes []byte) {
 		for _, el := range rawElements {
 			elementMap[el.Name] = &ElementNode{
 				Name:     el.Name,
+				ImgSrc:   el.ImgSrc,
 				Tier:     el.Tier,
 				Children: []*RecipeNode{},
 			}
+		}
+
+		for _, el := range rawElements {
 			for _, r := range el.Recipes {
-				if len(r) == 2 {
-					allRecipes = append(allRecipes, &RecipeNode{
-						Result:      el.Name,
-						Ingredient1: &ElementNode{Name: r[0], IsVisited: false, Children: []*RecipeNode{}},
-						Ingredient2: &ElementNode{Name: r[1], IsVisited: false, Children: []*RecipeNode{}},
-					})
+				ing1 := elementMap[r[0]]
+				ing2 := elementMap[r[1]]
+				if ing1 == nil || ing2 == nil {
+					// fmt.Printf("Skipping invalid recipe for %s: missing ingredient(s) %s or %s\n", el.Name, r[0], r[1])
+					continue
 				}
+				recipe := &RecipeNode{
+					Result:      el.Name,
+					Ingredient1: ing1,
+					Ingredient2: ing2,
+				}
+				allRecipes = append(allRecipes, recipe)
+				elementMap[el.Name].Children = append(elementMap[el.Name].Children, recipe)
 			}
 		}
 
-
-		// Build tree from user input
-		root := &ElementNode{Name: elmtName, Tier: 1, Children: []*RecipeNode{}}
-		root.Tier = elementMap[elmtName].Tier
-		// if !exists {
-		// 	http.Error(w, "Element not found", http.StatusNotFound)
-		// 	return
-		// }
+		root := elementMap[elmtName]
 		bfs(root, elementMap, allRecipes, val, nil)
 
 		// Export tree
@@ -317,29 +323,39 @@ func serve(jsonBytes []byte) {
             return
         }
 
-        elementMap := make(map[string]*ElementNode)
-        var allRecipes []*RecipeNode
+		elementMap := make(map[string]*ElementNode)
+		var allRecipes []*RecipeNode
 
-        for _, el := range rawElements {
-            elementMap[el.Name] = &ElementNode{
-                Name:     el.Name,
-                Tier:     el.Tier,
-                Children: []*RecipeNode{},
-            }
-            for _, r := range el.Recipes {
-                if len(r) == 2 {
-                    allRecipes = append(allRecipes, &RecipeNode{
-                        Result:      el.Name,
-                        Ingredient1: &ElementNode{Name: r[0], IsVisited: false, Children: []*RecipeNode{}},
-                        Ingredient2: &ElementNode{Name: r[1], IsVisited: false, Children: []*RecipeNode{}},
-                    })
-                }
-            }
-        }
+		for _, el := range rawElements {
+			elementMap[el.Name] = &ElementNode{
+				Name:     el.Name,
+				ImgSrc:   el.ImgSrc,
+				Tier:     el.Tier,
+				Children: []*RecipeNode{},
+			}
+		}
+
+		for _, el := range rawElements {
+			for _, r := range el.Recipes {
+				ing1 := elementMap[r[0]]
+				ing2 := elementMap[r[1]]
+				if ing1 == nil || ing2 == nil {
+					// fmt.Printf("Skipping invalid recipe for %s: missing ingredient(s) %s or %s\n", el.Name, r[0], r[1])
+					continue
+				}
+				recipe := &RecipeNode{
+					Result:      el.Name,
+					Ingredient1: ing1,
+					Ingredient2: ing2,
+				}
+				allRecipes = append(allRecipes, recipe)
+				elementMap[el.Name].Children = append(elementMap[el.Name].Children, recipe)
+			}
+		}
+
+		// root := &ElementNode{Name: elmtName, Tier: 1, Children: []*RecipeNode{}}
+		root := elementMap[elmtName]
 		ch := make(chan int)
-        root := &ElementNode{Name: elmtName, Tier: elementMap[elmtName].Tier, Children: []*RecipeNode{}}
-		// root = elementMap[elmtName]
-
         go bfs(root, elementMap, allRecipes, val, ch)
 
         for _ = range ch {
@@ -410,17 +426,12 @@ func serve(jsonBytes []byte) {
 		}
 		fmt.Println("Starting Bidirect for element:", elmtName)
 		elementMap := make(map[string]*ElementNode)
-		elementMapRaw := make(map[string]*ElementNode)
 		var allRecipes []*RecipeNode
 
 		for _, el := range rawElements {
 			elementMap[el.Name] = &ElementNode{
 				Name:     el.Name,
-				Tier:     el.Tier,
-				Children: []*RecipeNode{},
-			}
-			elementMapRaw[el.Name] = &ElementNode{
-				Name:     el.Name,
+				ImgSrc:   el.ImgSrc,
 				Tier:     el.Tier,
 				Children: []*RecipeNode{},
 			}
@@ -446,7 +457,6 @@ func serve(jsonBytes []byte) {
 
 		// root := &ElementNode{Name: elmtName, Tier: 1, Children: []*RecipeNode{}}
 		root := elementMap[elmtName]
-		rootRaw := elementMapRaw[elmtName]
 		wg := &sync.WaitGroup{}
 		basic := []*ElementNode{}
 		basic = append(basic, elementMap["Earth"])
@@ -458,7 +468,7 @@ func serve(jsonBytes []byte) {
 		if right == "DFS" {
 			Bidirect_Right_DFS(root, wg, elementMap, nil, done)
 		} else {
-			Bidirect_Right_BFS(rootRaw, val, wg, elementMapRaw, allRecipes, nil, done)
+			Bidirect_Right_BFS(root, val, wg, elementMap, allRecipes, nil, done)
 		}
 		copyAllRecipes := make([]*RecipeNode, len(allRecipes))
 		copy(copyAllRecipes, allRecipes)
@@ -496,6 +506,35 @@ func serve(jsonBytes []byte) {
 		}
 		fmt.Println("Exporting to JSON...")
 		w.Write(jsonOut)
+	})
+
+	addRouteWithCORS("/image", func(w http.ResponseWriter, r *http.Request) {
+		// Shuffle rawElements
+		rand.Seed(time.Now().UnixNano())
+		shuffled := make([]Element, len(rawElements))
+		copy(shuffled, rawElements)
+		rand.Shuffle(len(shuffled), func(i, j int) {
+			shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+		})
+
+		// Pick up to 50 elements with non-empty image URLs
+		imageMap := make(map[string]string)
+		count := 0
+		for _, el := range shuffled {
+			if el.ImgSrc != "" {
+				imageMap[el.Name] = el.ImgSrc
+				count++
+			}
+			if count >= 50 {
+				break
+			}
+		}
+
+		// Write JSON response
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(imageMap); err != nil {
+			http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
+		}
 	})
 
 	// addRouteWithCORS("/live-Bidirectional/", func(w http.ResponseWriter, r *http.Request) {

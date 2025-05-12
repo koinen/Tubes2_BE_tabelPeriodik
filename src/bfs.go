@@ -136,10 +136,10 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []*RecipeN
 		var nextLevel []*ElementNode
 
 		// go func() {
-		if ch != nil {
-			fmt.Println("Level: ", currentLevel[0].Tier)
-			ch <- currentLevel[0].Tier
-		}
+		// if ch != nil {
+		// 	fmt.Println("Level: ", currentLevel[0].Tier)
+		// 	ch <- currentLevel[0].Tier
+		// }
 		for _, current := range currentLevel {
 			// fmt.Println("Worker: ", i)
 			// wg.Done()
@@ -148,6 +148,8 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []*RecipeN
 
 			// 	continue
 			// }
+			
+			current.Children = []*RecipeNode{}
 
 			wg.Add(1)
 			go func(current *ElementNode) {
@@ -274,6 +276,10 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []*RecipeN
 						recipeMu.Unlock()
 						current.Children = append(current.Children, &res)
 						fmt.Printf("Appending recipe for %s, %s + %s\n", current.Name, base1.Name, base2.Name)
+						if ch != nil {
+							fmt.Println("Level: ", currentLevel[0].Tier)
+							ch <- currentLevel[0].Tier
+						}
 					}
 					ru.Unlock()
 					mu.Unlock()
@@ -302,11 +308,13 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []*RecipeN
 					mu.Unlock()
 				}
 			}(current)
+			
 		}
 		wg.Wait()
 
 		fmt.Println("Level: ", currentLevel[0].Tier)
 		currentLevel = nextLevel
+
 		// }()
 		// if len(root.Children) >= limitRecipe {
 		// 	return

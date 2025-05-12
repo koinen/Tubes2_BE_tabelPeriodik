@@ -9,6 +9,7 @@ import (
 type ElementNode struct {
 	IsVisited bool
 	Name      string
+	ImgSrc    string
 	Left      bool
 	Tier      int
 	Children  []*RecipeNode
@@ -22,6 +23,7 @@ type RecipeNode struct {
 
 type ExportableElement struct {
 	Name       string             `json:"name"`
+	ImgSrc      string            `json:"img_src"`
 	Attributes map[string]string  `json:"attributes"`
 	Children   []ExportableRecipe `json:"children"`
 }
@@ -113,10 +115,6 @@ func DFS_Multiple(
 			continue
 		}
 
-		if depthChan != nil {
-			depthChan <- current.Tier
-		}
-
 		select {
 		case sem <- struct{}{}:
 			wg.Add(1)
@@ -139,6 +137,10 @@ func DFS_Multiple(
 		default:
 			DFS_Multiple(ing2, wg, elements, depthChan)
 		}
+	}
+
+	if depthChan != nil {
+		depthChan <- current.Tier
 	}
 
 	if len(current.Children) == 0 {
@@ -215,9 +217,9 @@ func DFS_Single(
 			break
 		}
 
-		if depthChan != nil {
-			depthChan <- current.Tier
-		}
+		// if depthChan != nil {
+		// 	depthChan <- current.Tier
+		// }
 
 		select {
 		case sem <- struct{}{}:
@@ -241,12 +243,27 @@ func DFS_Single(
 		default:
 			DFS_Multiple(ing2, wg, elements, depthChan)
 		}
+		if depthChan != nil {
+			depthChan <- current.Tier
+		}
 		break // Only use one recipe per element
 	}
 }
 
 // Converts internal ElementNode to exportable form
 func ToExportableElement(node *ElementNode, res *ExportableElement, visited map[*ElementNode]*ExportableElement) {
+	// if node.Name == "Sword" {
+	// 	fmt.Printf("Children of Sword: %d\n", len(node.Children))
+	// 	fmt.Printf("Name: %s\n", node.Name)
+	// 	fmt.Printf("Tier: %d\n", node.Tier)
+	// 	fmt.Printf("Left: %t\n", node.Left)
+	// 	fmt.Printf("Visited: %t\n", node.IsVisited)
+	// 	for _, child := range node.Children {
+	// 		fmt.Printf("Child: %s\n", child.Ingredient1.Name)
+	// 		fmt.Printf("Child: %s\n", child.Ingredient2.Name)
+	// 	}
+	// }
+
 	if node == nil || !node.IsVisited {
 		return
 	}
@@ -254,6 +271,7 @@ func ToExportableElement(node *ElementNode, res *ExportableElement, visited map[
 	if _, exists := visited[node]; exists {
 		// prevent infinite cycle
 		res.Name = visited[node].Name
+		res.ImgSrc = visited[node].ImgSrc
 		res.Attributes = visited[node].Attributes
 		if node.Left {
 			res.Attributes["Side"] = "Left"
@@ -263,10 +281,23 @@ func ToExportableElement(node *ElementNode, res *ExportableElement, visited map[
 		res.Children = visited[node].Children
 		return
 	}
+	// if _, exists := visited[node]; exists {
+	// 	res.Name = visited[node].Name
+	// 	res.ImgSrc = visited[node].ImgSrc
+	// 	res.Attributes = visited[node].Attributes
+	// 	if node.Left {
+	// 		res.Attributes["Side"] = "Left"
+	// 	} else {
+	// 		res.Attributes["Side"] = "Right"
+	// 	}
+	// 	res.Children = visited[node].Children
+	// 	return
+	// }
 
 	visited[node] = res
 
 	res.Name = node.Name
+	res.ImgSrc = node.ImgSrc
 	res.Attributes = make(map[string]string)
 	if node.Left {
 		res.Attributes["Side"] = "Left"
@@ -287,14 +318,6 @@ func ToExportableElement(node *ElementNode, res *ExportableElement, visited map[
 	for i := range node.Children {
 		ToExportableRecipe(node.Children[i], &res.Children[i], visited)
 	}
-
-	// if node.Name == "Pressure" {
-	// 	fmt.Printf("Children of Pres: %d\n", len(node.Children))
-	// 	for _, child := range node.Children {
-	// 		fmt.Printf("Child: %s\n", child.Ingredient1.Name)
-	// 		fmt.Printf("Child: %s\n", child.Ingredient2.Name)
-	// 	}
-	// }
 }
 
 func ToExportableRecipe(node *RecipeNode, res *ExportableRecipe, visited map[*ElementNode]*ExportableElement) {
@@ -314,11 +337,21 @@ func ToExportableElement3(node *ElementNode, visited map[*ElementNode]*Exportabl
 
     // Already visited? Return the pointer directly to avoid recursion
     if cached, ok := visited[node]; ok {
+		if node.Left {
+			cached.Attributes["Side"] = "Left"
+		} else {
+			cached.Attributes["Side"] = "Right"
+		}
+		cached.Children = visited[node].Children
+		cached.Name = visited[node].Name
+		cached.ImgSrc = visited[node].ImgSrc
+		cached.Attributes["Type"] = "element"
         return cached
     }
 
     exported := &ExportableElement{
         Name:       node.Name,
+		ImgSrc:     node.ImgSrc,
         Attributes: make(map[string]string),
         Children:   []ExportableRecipe{},
     }
@@ -353,3 +386,78 @@ func ToExportableRecipe3(recipe *RecipeNode, visited map[*ElementNode]*Exportabl
         },
     }
 }
+
+// func ToExportableElement(node ElementNode, res *ExportableElement, visited map[string]ExportableElement) {
+// 	// if node.Name == "Sword" {
+// 	// 	fmt.Printf("Children of Sword: %d\n", len(node.Children))
+// 	// 	fmt.Printf("Name: %s\n", node.Name)
+// 	// 	fmt.Printf("Tier: %d\n", node.Tier)
+// 	// 	fmt.Printf("Left: %t\n", node.Left)
+// 	// 	fmt.Printf("Visited: %t\n", node.IsVisited)
+// 	// 	for _, child := range node.Children {
+// 	// 		fmt.Printf("Child: %s\n", child.Ingredient1.Name)
+// 	// 		fmt.Printf("Child: %s\n", child.Ingredient2.Name)
+// 	// 	}
+// 	// }
+
+// 	if !node.IsVisited {
+// 		return
+// 	}
+
+// 	if _, exists := visited[node.Name]; exists {
+// 		// prevent infinite cycle
+// 		res.Name = visited[node.Name].Name
+// 		res.ImgSrc = visited[node.Name].ImgSrc
+// 		res.Attributes = visited[node.Name].Attributes
+// 		if node.Left {
+// 			res.Attributes["Side"] = "Left"
+// 		} else {
+// 			res.Attributes["Side"] = "Right"
+// 		}
+// 		res.Children = visited[node.Name].Children
+// 		return
+// 	}
+// 	// if _, exists := visited[node]; exists {
+// 	// 	res.Name = visited[node].Name
+// 	// 	res.ImgSrc = visited[node].ImgSrc
+// 	// 	res.Attributes = visited[node].Attributes
+// 	// 	if node.Left {
+// 	// 		res.Attributes["Side"] = "Left"
+// 	// 	} else {
+// 	// 		res.Attributes["Side"] = "Right"
+// 	// 	}
+// 	// 	res.Children = visited[node].Children
+// 	// 	return
+// 	// }
+
+// 	res.Name = node.Name
+// 	res.ImgSrc = node.ImgSrc
+// 	res.Attributes = make(map[string]string)
+// 	if node.Left {
+// 		res.Attributes["Side"] = "Left"
+// 	} else {
+// 		res.Attributes["Side"] = "Right"
+// 	}
+
+// 	if node.Left {
+// 		fmt.Printf("Left: %s\n", node.Name)
+// 	}
+// 	res.Attributes["Type"] = "element"
+
+// 	if node.Tier == 0 {
+// 		return
+// 	}
+
+// 	res.Children = make([]ExportableRecipe, len(node.Children))
+// 	for i := range node.Children {
+// 		ToExportableRecipe(*node.Children[i], &res.Children[i], visited)
+// 	}
+// 	visited[node.Name] = *res
+// }
+
+// func ToExportableRecipe(node RecipeNode, res *ExportableRecipe, visited map[string]ExportableElement) {
+// 	res.Attributes = "recipe"
+// 	res.Children = make([]ExportableElement, 2)
+// 	ToExportableElement(*node.Ingredient1, &res.Children[0], visited)
+// 	ToExportableElement(*node.Ingredient2, &res.Children[1], visited)
+// }
