@@ -366,14 +366,14 @@ func serve(jsonBytes []byte) {
 			go func() {
 				defer wg.Done()
 				Bidirect_Left_BFS(basic, root, elementMap, copyAllRecipes, done)
-				fmt.Println("[BFS] Done")
+				fmt.Println("[BFS Left] Done")
 			}()
 		} else {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				Bidirect_Left_DFS(basic, root, elementMap, copyAllRecipes, done)
-				fmt.Println("[DFS] Done")
+				fmt.Println("[DFS Left] Done")
 			}()
 		}
 		wg.Wait()

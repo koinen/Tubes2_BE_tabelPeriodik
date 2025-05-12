@@ -17,7 +17,7 @@ func Bidirect_Right_DFS(
 	go func() {
 		defer wg.Done()
 		DFS_Multiple(root, wg, elementMap, nil)
-		fmt.Println("[DFS] Done")
+		fmt.Println("[DFS Right] Done")
 		close(doneChan) // Notify BFS
 	}()
 }
@@ -34,7 +34,7 @@ func Bidirect_Right_BFS(
 	go func() {
 		defer wg.Done()
 		bfs(root, elementMap, allRecipes)
-		fmt.Println("[DFS] Done")
+		fmt.Println("[BFS Right] Done")
 		close(doneChan) // Notify BFS
 	}()
 }
@@ -167,7 +167,7 @@ func Bidirect_Left_BFS(
 		fmt.Printf("[BFS] Tier %d complete, %d new elements discovered\n", currentTier, count)
 	}
 
-	fmt.Println("[BFS] Finished")
+	fmt.Println("[BFS Left] Finished")
 }
 
 func Bidirect_Left_DFS(
@@ -224,5 +224,5 @@ func Bidirect_Left_DFS(
 		}
 	}
 
-	fmt.Println("[DFS] No more elements to process. Exiting DFS.")
+	fmt.Println("[DFS Left] No more elements to process. Exiting DFS.")
 }
