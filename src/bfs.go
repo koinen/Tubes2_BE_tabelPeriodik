@@ -136,6 +136,10 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []*RecipeN
 		var nextLevel []*ElementNode
 
 		// go func() {
+		if ch != nil {
+			fmt.Println("Level: ", currentLevel[0].Tier)
+			ch <- currentLevel[0].Tier
+		}
 		for _, current := range currentLevel {
 			// fmt.Println("Worker: ", i)
 			// wg.Done()
@@ -275,7 +279,7 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []*RecipeN
 					mu.Unlock()
 					//BFS
 					mu.Lock()
-					if len(base1.Children) == 0 {
+					if !base1.IsVisited {
 						fmt.Println("Enqueue: ", base1.Name)
 						//Enqueue
 						// wg.Add(1)
@@ -289,7 +293,7 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []*RecipeN
 					visited[base1.Name] = true
 					base1.IsVisited = true
 
-					if len(base2.Children) == 0 {
+					if !base2.IsVisited {
 						//Enqueue
 						// wg.Add(1)
 						nextLevel = append(nextLevel, base2)
@@ -302,10 +306,7 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []*RecipeN
 			}(current)
 		}
 		wg.Wait()
-		if ch != nil {
-			fmt.Println("Level: ", currentLevel[0].Tier)
-			ch <- currentLevel[0].Tier
-		}
+
 		currentLevel = nextLevel
 		// }()
 		// if len(root.Children) >= limitRecipe {
