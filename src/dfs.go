@@ -54,14 +54,18 @@ func DFS_Multiple(
 	visitMu.Lock()
 	if current.IsVisited {
 		visitMu.Unlock()
-		barrier.Done()
+		if barrier != nil {
+			barrier.Done()
+		}
 		return
 	}
 	current.IsVisited = true
 	visitMu.Unlock()
 
 	if current.Tier == 0 {
-		barrier.Done()
+		if barrier != nil {
+			barrier.Done()
+		}
 		return
 	}
 
@@ -74,8 +78,10 @@ func DFS_Multiple(
 	current.Children = []*RecipeNode{}
 
 	// fmt.Printf("Recipe len: %d", len(ALLrecipes))
-	barrier.Done()
-	barrier.Wait()
+	if barrier != nil {
+		barrier.Done()
+		barrier.Wait()
+	}
 
 	if depthChan != nil {
 		fmt.Printf("DFS_Multiple: %s\n", current.Name)
@@ -124,7 +130,9 @@ func DFS_Multiple(
 		if ing1.Tier == 0 && ing2.Tier == 0 {
 			continue
 		}
-		barrier.Add(1)
+		if barrier != nil {
+			barrier.Add(1)
+		}
 		select {
 		case sem <- struct{}{}:
 			wg.Add(1)
@@ -136,7 +144,9 @@ func DFS_Multiple(
 		default:
 			DFS_Multiple(ing1, wg, elements, depthChan, barrier)
 		}
-		barrier.Add(1)
+		if barrier != nil {
+			barrier.Add(1)
+		}
 		select {
 		case sem <- struct{}{}:
 			wg.Add(1)
