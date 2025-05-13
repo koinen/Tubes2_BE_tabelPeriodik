@@ -37,9 +37,11 @@ Hal yang perlu di unduh sebelum menggunakan program ini adalah
 2.	Docker
 
 Cara Menjalankan
-🔧 1. Jalankan dengan Docker
-bash
-Copy
-Edit
+1. Build Docker
+```
 docker build -t alchemy-backend .
+```
+2. Jalankan Docker
+```
 docker run -p 8080:8080 alchemy-backend
+```
