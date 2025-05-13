@@ -3,12 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
-	"math/rand"
 )
 
 func withCORS(next http.Handler) http.Handler {
@@ -55,7 +55,7 @@ func serve(jsonBytes []byte) {
 			http.Error(w, "Invalid recipe amount", http.StatusBadRequest)
 			return
 		}
-		atomic.StoreInt32(&recipeLeft, int32(val - 1))
+		atomic.StoreInt32(&recipeLeft, int32(val-1))
 		sem = make(chan struct{}, val-1)
 		fmt.Println("Recipe left set to:", recipeLeft)
 
@@ -94,10 +94,12 @@ func serve(jsonBytes []byte) {
 		root := elementMap[elmtName]
 		wg := &sync.WaitGroup{}
 		depthChan := make(chan int)
+		barrier := &sync.WaitGroup{}
 
+		barrier.Add(1)
 		wg.Add(1)
 		go func() {
-			DFS_Multiple(root, wg, elementMap, depthChan)
+			DFS_Multiple(root, wg, elementMap, depthChan, barrier)
 		}()
 
 		go func() {
@@ -105,7 +107,15 @@ func serve(jsonBytes []byte) {
 			close(depthChan)
 		}()
 
-		for _ = range depthChan {
+		for {
+			if _, ok := <-depthChan; !ok {
+				break
+			}
+			barrier.Add(1)
+			time.Sleep(time.Duration(val2) * time.Millisecond) // delay
+			barrier.Done()
+			barrier.Wait()
+
 			exportList := ExportableElement{
 				Name:       root.Name,
 				Attributes: map[string]string{"Type": "element", "Side": "Right"},
@@ -155,15 +165,15 @@ func serve(jsonBytes []byte) {
 		fmt.Println("Recipe amount parameter:", recipeAmount)
 		val, err := strconv.Atoi(recipeAmount)
 		if err != nil {
-		http.Error(w, "Invalid recipe amount", http.StatusBadRequest)
-		return
+			http.Error(w, "Invalid recipe amount", http.StatusBadRequest)
+			return
 		}
 		if elmtName == "" {
 			http.Error(w, "Element name is required", http.StatusBadRequest)
 			return
 		}
 
-		atomic.StoreInt32(&recipeLeft, int32(val - 1))
+		atomic.StoreInt32(&recipeLeft, int32(val-1))
 		sem = make(chan struct{}, val-1)
 		fmt.Println("Recipe left set to:", recipeLeft)
 		fmt.Println("Starting DFS for element:", elmtName)
@@ -203,8 +213,10 @@ func serve(jsonBytes []byte) {
 			return
 		}
 		wg := &sync.WaitGroup{}
+		barrier := &sync.WaitGroup{}
+		barrier.Add(1)
 
-		DFS_Multiple(root, wg, elementMap, nil)
+		DFS_Multiple(root, wg, elementMap, nil, barrier)
 		wg.Wait()
 
 		// Export tree
@@ -296,32 +308,32 @@ func serve(jsonBytes []byte) {
 	})
 
 	addRouteWithCORS("/live-BFS/", func(w http.ResponseWriter, r *http.Request) {
-        fmt.Println("run")
-        w.Header().Set("Content-Type", "text/event-stream")
-        w.Header().Set("Cache-Control", "no-cache")
-        w.Header().Set("Connection", "keep-alive")
+		fmt.Println("run")
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
 
-        recipeAmount := r.URL.Query().Get("recipeAmount")
+		recipeAmount := r.URL.Query().Get("recipeAmount")
 		delay := r.URL.Query().Get("delay")
-        val, err := strconv.Atoi(recipeAmount)
-        if err != nil {
-            http.Error(w, "Invalid recipe amount", http.StatusBadRequest)
-            return
-        }
+		val, err := strconv.Atoi(recipeAmount)
+		if err != nil {
+			http.Error(w, "Invalid recipe amount", http.StatusBadRequest)
+			return
+		}
 		val2, err := strconv.Atoi(delay)
 		if err != nil {
 			http.Error(w, "Invalid delay value", http.StatusBadRequest)
 			return
 		}
-        atomic.StoreInt32(&recipeLeft, int32(val-1))
+		atomic.StoreInt32(&recipeLeft, int32(val-1))
 
-        fmt.Println("Starting live BFS stream...")
+		fmt.Println("Starting live BFS stream...")
 
-        elmtName := r.URL.Path[len("/live-BFS/"):]
-        if elmtName == "" {
-            http.Error(w, "Element name is required", http.StatusBadRequest)
-            return
-        }
+		elmtName := r.URL.Path[len("/live-BFS/"):]
+		if elmtName == "" {
+			http.Error(w, "Element name is required", http.StatusBadRequest)
+			return
+		}
 
 		elementMap := make(map[string]*ElementNode)
 		var allRecipes []*RecipeNode
@@ -356,9 +368,9 @@ func serve(jsonBytes []byte) {
 		// root := &ElementNode{Name: elmtName, Tier: 1, Children: []*RecipeNode{}}
 		root := elementMap[elmtName]
 		ch := make(chan int)
-        go bfs(root, elementMap, allRecipes, val, ch)
+		go bfs(root, elementMap, allRecipes, val, ch)
 
-        for _ = range ch {
+		for _ = range ch {
 			exportList := ExportableElement{
 				Name:       root.Name,
 				Attributes: map[string]string{"Type": "element", "Side": "Right"},
@@ -366,38 +378,38 @@ func serve(jsonBytes []byte) {
 			}
 			visitedExport := make(map[*ElementNode]*ExportableElement)
 			ToExportableElement(root, &exportList, visitedExport)
-            // Write to file
-            payload := map[string]any{
-                "depth": exportList, // or "data": exportList
-            }
-            wrapped, err := json.Marshal(payload)
-            if err != nil {
-                panic(err)
-            }
-            fmt.Fprintf(w, "data: %s\n\n", wrapped)
-            w.(http.Flusher).Flush()
+			// Write to file
+			payload := map[string]any{
+				"depth": exportList, // or "data": exportList
+			}
+			wrapped, err := json.Marshal(payload)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Fprintf(w, "data: %s\n\n", wrapped)
+			w.(http.Flusher).Flush()
 			time.Sleep(time.Duration(val2) * time.Millisecond)
-        }
-        // visited := make(map[*ElementNode]*ExportableElement)
-        // finalExport := ToExportableElement3(root, visited)
+		}
+		// visited := make(map[*ElementNode]*ExportableElement)
+		// finalExport := ToExportableElement3(root, visited)
 		finalExport := ExportableElement{
 			Name:       root.Name,
 			Attributes: map[string]string{"Type": "element", "Side": "Right"},
 			Children:   make([]ExportableRecipe, 0, len(root.Children)),
 		}
 		visitedExport := make(map[*ElementNode]*ExportableElement)
-        ToExportableElement(root, &finalExport, visitedExport)
+		ToExportableElement(root, &finalExport, visitedExport)
 
-        finalPayload := map[string]any{
-            "depth": finalExport,
-        }
-        finalWrapped, err := json.Marshal(finalPayload)
-        if err != nil {
-            panic(err)
-        }
-        fmt.Fprintf(w, "data: %s\n\n", finalWrapped)
-        w.(http.Flusher).Flush()
-    })
+		finalPayload := map[string]any{
+			"depth": finalExport,
+		}
+		finalWrapped, err := json.Marshal(finalPayload)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Fprintf(w, "data: %s\n\n", finalWrapped)
+		w.(http.Flusher).Flush()
+	})
 
 	addRouteWithCORS("/Bidirectional/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -417,7 +429,7 @@ func serve(jsonBytes []byte) {
 			http.Error(w, "Invalid recipe amount", http.StatusBadRequest)
 			return
 		}
-		atomic.StoreInt32(&recipeLeft, int32(val - 1))
+		atomic.StoreInt32(&recipeLeft, int32(val-1))
 		sem = make(chan struct{}, val-1)
 		fmt.Println("Recipe left set to:", recipeLeft)
 		if elmtName == "" {
@@ -496,13 +508,13 @@ func serve(jsonBytes []byte) {
 			Children:   make([]ExportableRecipe, 0, len(root.Children)),
 		}
 		exportList.Children = make([]ExportableRecipe, 0, len(root.Children))
-			
+
 		visitedExport := make(map[*ElementNode]*ExportableElement)
 		ToExportableElement(root, &exportList, visitedExport)
 
 		jsonOut, err := json.Marshal(exportList)
 		if err != nil {
-		panic(err)
+			panic(err)
 		}
 		fmt.Println("Exporting to JSON...")
 		w.Write(jsonOut)
@@ -606,7 +618,6 @@ func serve(jsonBytes []byte) {
 	// 	basic = append(basic, elementMap["Water"])
 	// 	done := make(chan struct{})
 	// 	depthChan := make(chan int)
-
 
 	// 	copyAllRecipes := make([]*RecipeNode, len(allRecipes))
 	// 	copy(copyAllRecipes, allRecipes)

@@ -23,7 +23,7 @@ type RecipeNode struct {
 
 type ExportableElement struct {
 	Name       string             `json:"name"`
-	ImgSrc      string            `json:"img_src"`
+	ImgSrc     string             `json:"img_src"`
 	Attributes map[string]string  `json:"attributes"`
 	Children   []ExportableRecipe `json:"children"`
 }
@@ -43,6 +43,7 @@ func DFS_Multiple(
 	wg *sync.WaitGroup,
 	elements map[string]*ElementNode,
 	depthChan chan int,
+	barrier *sync.WaitGroup,
 ) {
 	defer func() {
 		if depthChan != nil {
@@ -53,12 +54,14 @@ func DFS_Multiple(
 	visitMu.Lock()
 	if current.IsVisited {
 		visitMu.Unlock()
+		barrier.Done()
 		return
 	}
 	current.IsVisited = true
 	visitMu.Unlock()
 
 	if current.Tier == 0 {
+		barrier.Done()
 		return
 	}
 
@@ -71,6 +74,13 @@ func DFS_Multiple(
 	current.Children = []*RecipeNode{}
 
 	// fmt.Printf("Recipe len: %d", len(ALLrecipes))
+	barrier.Done()
+	barrier.Wait()
+
+	if depthChan != nil {
+		fmt.Printf("DFS_Multiple: %s\n", current.Name)
+		depthChan <- current.Tier
+	}
 
 	fistAdd := true
 	for _, recipe := range ALLrecipes {
@@ -114,141 +124,139 @@ func DFS_Multiple(
 		if ing1.Tier == 0 && ing2.Tier == 0 {
 			continue
 		}
-
+		barrier.Add(1)
 		select {
 		case sem <- struct{}{}:
 			wg.Add(1)
 			go func(n *ElementNode) {
 				defer wg.Done()
-				DFS_Multiple(n, wg, elements, depthChan)
+
+				DFS_Multiple(n, wg, elements, depthChan, barrier)
 				<-sem // release slot
 			}(ing1)
 		default:
-			DFS_Multiple(ing1, wg, elements, depthChan)
+			DFS_Multiple(ing1, wg, elements, depthChan, barrier)
 		}
+		barrier.Add(1)
 		select {
 		case sem <- struct{}{}:
 			wg.Add(1)
 			go func(n *ElementNode) {
 				defer wg.Done()
-				DFS_Multiple(n, wg, elements, depthChan)
+				DFS_Multiple(n, wg, elements, depthChan, barrier)
 				<-sem // release slot
 			}(ing2)
 		default:
-			DFS_Multiple(ing2, wg, elements, depthChan)
+			DFS_Multiple(ing2, wg, elements, depthChan, barrier)
 		}
 	}
 
-	if depthChan != nil {
-		depthChan <- current.Tier
-	}
-
-	if len(current.Children) == 0 {
-		DFS_Single(current, wg, elements, depthChan)
-	}
+	// if len(current.Children) == 0 {
+	// 	DFS_Single(current, wg, elements, depthChan)
+	// }
 	visitMu.Lock()
 	current.IsVisited = true
 	visitMu.Unlock()
 }
 
-func DFS_Single(
-	current *ElementNode,
-	wg *sync.WaitGroup,
-	elements map[string]*ElementNode,
-	depthChan chan int,
-) {
-	defer func() {
-		if depthChan != nil {
-			depthChan <- current.Tier
-		}
-	}()
+// func DFS_Single(
+// 	current *ElementNode,
+// 	wg *sync.WaitGroup,
+// 	elements map[string]*ElementNode,
+// 	depthChan chan int,
+// ) {
+// 	defer func() {
+// 		if depthChan != nil {
+// 			depthChan <- current.Tier
+// 		}
+// 	}()
 
-	fmt.Printf("DFS_Single: %s\n", current.Name)
+// 	fmt.Printf("DFS_Single: %s\n", current.Name)
 
-	visitMu.Lock()
-	if current.IsVisited {
-		visitMu.Unlock()
-		return
-	}
-	current.IsVisited = true
-	visitMu.Unlock()
+// 	visitMu.Lock()
+// 	if current.IsVisited {
+// 		visitMu.Unlock()
+// 		return
+// 	}
+// 	current.IsVisited = true
+// 	visitMu.Unlock()
 
-	count := atomic.AddInt32(&numberVisit, 1)
-	fmt.Printf("Visiting node Single (%d): %s Tier: %d\n", count, current.Name, current.Tier)
+// 	count := atomic.AddInt32(&numberVisit, 1)
+// 	fmt.Printf("Visiting node Single (%d): %s Tier: %d\n", count, current.Name, current.Tier)
 
-	ALLrecipes := make([]*RecipeNode, len(current.Children))
-	copy(ALLrecipes, current.Children)
-	current.Children = []*RecipeNode{}
+// 	ALLrecipes := make([]*RecipeNode, len(current.Children))
+// 	copy(ALLrecipes, current.Children)
+// 	current.Children = []*RecipeNode{}
 
-	for _, recipe := range ALLrecipes {
-		if recipe.Result != current.Name {
-			continue
-		}
+// 	for _, recipe := range ALLrecipes {
+// 		if recipe.Result != current.Name {
+// 			continue
+// 		}
 
-		// fmt.Printf("Processing recipe for %s\n", current.Name)
+// 		// fmt.Printf("Processing recipe for %s\n", current.Name)
 
-		ing1, ok1 := elements[recipe.Ingredient1.Name]
-		ing2, ok2 := elements[recipe.Ingredient2.Name]
-		if !ok1 || !ok2 {
-			continue
-		}
+// 		ing1, ok1 := elements[recipe.Ingredient1.Name]
+// 		ing2, ok2 := elements[recipe.Ingredient2.Name]
+// 		if !ok1 || !ok2 {
+// 			continue
+// 		}
 
-		if ing1.Tier >= current.Tier || ing2.Tier >= current.Tier {
-			fmt.Printf("Abandoning recipe Single for %s: ingredient tier too high (%s: %d, %s: %d > %d)\n",
-				current.Name, ing1.Name, ing1.Tier, ing2.Name, ing2.Tier, current.Tier)
-			continue
-		}
+// 		if ing1.Tier >= current.Tier || ing2.Tier >= current.Tier {
+// 			fmt.Printf("Abandoning recipe Single for %s: ingredient tier too high (%s: %d, %s: %d > %d)\n",
+// 				current.Name, ing1.Name, ing1.Tier, ing2.Name, ing2.Tier, current.Tier)
+// 			continue
+// 		}
 
-		visitMu.Lock()
-		if ing1.Tier == 0 {
-			ing1.IsVisited = true
-		}
-		if ing2.Tier == 0 {
-			ing2.IsVisited = true
-		}
-		visitMu.Unlock()
+// 		visitMu.Lock()
+// 		if ing1.Tier == 0 {
+// 			ing1.IsVisited = true
+// 		}
+// 		if ing2.Tier == 0 {
+// 			ing2.IsVisited = true
+// 		}
+// 		visitMu.Unlock()
 
-		visitMu.Lock()
-		current.Children = append(current.Children, recipe)
-		fmt.Printf("Appending recipe for %s, %s + %s\n", current.Name, ing1.Name, ing2.Name)
-		visitMu.Unlock()
+// 		visitMu.Lock()
+// 		current.Children = append(current.Children, recipe)
+// 		fmt.Printf("Appending recipe for %s, %s + %s\n", current.Name, ing1.Name, ing2.Name)
+// 		visitMu.Unlock()
 
-		if ing1.Tier == 0 && ing2.Tier == 0 {
-			break
-		}
+// 		if ing1.Tier == 0 && ing2.Tier == 0 {
+// 			break
+// 		}
 
-		// if depthChan != nil {
-		// 	depthChan <- current.Tier
-		// }
+// 		// if depthChan != nil {
+// 		// 	depthChan <- current.Tier
+// 		// }
 
-		select {
-		case sem <- struct{}{}:
-			wg.Add(1)
-			go func(n *ElementNode) {
-				defer wg.Done()
-				DFS_Multiple(n, wg, elements, depthChan)
-				<-sem // release slot
-			}(ing1)
-		default:
-			DFS_Multiple(ing1, wg, elements, depthChan)
-		}
-		select {
-		case sem <- struct{}{}:
-			wg.Add(1)
-			go func(n *ElementNode) {
-				defer wg.Done()
-				DFS_Multiple(n, wg, elements, depthChan)
-				<-sem // release slot
-			}(ing2)
-		default:
-			DFS_Multiple(ing2, wg, elements, depthChan)
-		}
-		if depthChan != nil {
-			depthChan <- current.Tier
-		}
-		break // Only use one recipe per element
-	}
-}
+// 		select {
+// 		case sem <- struct{}{}:
+// 			wg.Add(1)
+// 			go func(n *ElementNode) {
+// 				defer wg.Done()
+// 				DFS_Multiple(n, wg, elements, depthChan)
+// 				<-sem // release slot
+// 			}(ing1)
+// 		default:
+// 			DFS_Multiple(ing1, wg, elements, depthChan)
+// 		}
+// 		select {
+// 		case sem <- struct{}{}:
+// 			wg.Add(1)
+// 			go func(n *ElementNode) {
+// 				defer wg.Done()
+// 				DFS_Multiple(n, wg, elements, depthChan)
+// 				<-sem // release slot
+// 			}(ing2)
+// 		default:
+// 			DFS_Multiple(ing2, wg, elements, depthChan)
+// 		}
+// 		if depthChan != nil {
+// 			depthChan <- current.Tier
+// 		}
+// 		break // Only use one recipe per element
+// 	}
+// }
 
 // Converts internal ElementNode to exportable form
 func ToExportableElement(node *ElementNode, res *ExportableElement, visited map[*ElementNode]*ExportableElement) {
@@ -330,13 +338,13 @@ func ToExportableRecipe(node *RecipeNode, res *ExportableRecipe, visited map[*El
 	ToExportableElement(node.Ingredient2, &res.Children[1], visited)
 }
 
-func ToExportableElement3(node *ElementNode, visited map[*ElementNode]*ExportableElement)*ExportableElement {
-    if node == nil || !node.IsVisited {
-        return nil
-    }
+func ToExportableElement3(node *ElementNode, visited map[*ElementNode]*ExportableElement) *ExportableElement {
+	if node == nil || !node.IsVisited {
+		return nil
+	}
 
-    // Already visited? Return the pointer directly to avoid recursion
-    if cached, ok := visited[node]; ok {
+	// Already visited? Return the pointer directly to avoid recursion
+	if cached, ok := visited[node]; ok {
 		if node.Left {
 			cached.Attributes["Side"] = "Left"
 		} else {
@@ -346,45 +354,45 @@ func ToExportableElement3(node *ElementNode, visited map[*ElementNode]*Exportabl
 		cached.Name = visited[node].Name
 		cached.ImgSrc = visited[node].ImgSrc
 		cached.Attributes["Type"] = "element"
-        return cached
-    }
+		return cached
+	}
 
-    exported := &ExportableElement{
-        Name:       node.Name,
+	exported := &ExportableElement{
+		Name:       node.Name,
 		ImgSrc:     node.ImgSrc,
-        Attributes: make(map[string]string),
-        Children:   []ExportableRecipe{},
-    }
+		Attributes: make(map[string]string),
+		Children:   []ExportableRecipe{},
+	}
 	exported.Attributes["Type"] = "element"
 	if node.Left {
 		exported.Attributes["Side"] = "Left"
 	} else {
 		exported.Attributes["Side"] = "Right"
 	}
-    // Put early in map to avoid recursive cycles
-    visited[node] = exported
+	// Put early in map to avoid recursive cycles
+	visited[node] = exported
 
-    if node.Tier != 0 {
-        for _, recipeNode := range node.Children {
-            exported.Children = append(exported.Children, *ToExportableRecipe3(recipeNode, visited))
-        }
-    }
+	if node.Tier != 0 {
+		for _, recipeNode := range node.Children {
+			exported.Children = append(exported.Children, *ToExportableRecipe3(recipeNode, visited))
+		}
+	}
 
-    return exported
+	return exported
 }
 
 func ToExportableRecipe3(recipe *RecipeNode, visited map[*ElementNode]*ExportableElement) *ExportableRecipe {
-    if recipe == nil {
-        return nil
-    }
+	if recipe == nil {
+		return nil
+	}
 
-    return &ExportableRecipe{
-        Attributes: "recipe",
-        Children: []ExportableElement{
-            *ToExportableElement3(recipe.Ingredient1, visited),
-            *ToExportableElement3(recipe.Ingredient2, visited),
-        },
-    }
+	return &ExportableRecipe{
+		Attributes: "recipe",
+		Children: []ExportableElement{
+			*ToExportableElement3(recipe.Ingredient1, visited),
+			*ToExportableElement3(recipe.Ingredient2, visited),
+		},
+	}
 }
 
 // func ToExportableElement(node ElementNode, res *ExportableElement, visited map[string]ExportableElement) {

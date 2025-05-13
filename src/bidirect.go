@@ -16,7 +16,7 @@ func Bidirect_Right_DFS(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		DFS_Multiple(root, wg, elementMap, depthChan)
+		DFS_Multiple(root, wg, elementMap, depthChan, nil)
 		fmt.Println("[DFS Right] Done")
 		close(doneChan) // Notify BFS
 	}()
@@ -76,7 +76,6 @@ func Bidirect_Left_BFS(
 			in1 := recipe.Ingredient1
 			in2 := recipe.Ingredient2
 			result := allElement[recipe.Result]
-
 
 			if result.IsVisited {
 				fmt.Printf("[Worker %d] Skipped %s (already visited)\n", id, result.Name)
@@ -139,7 +138,7 @@ func Bidirect_Left_BFS(
 		chunkSize := (len(candidates) + numWorkers - 1) / numWorkers
 		for i := range numWorkers {
 			start := i * chunkSize
-			end := min(start + chunkSize, len(candidates))
+			end := min(start+chunkSize, len(candidates))
 			if start >= end {
 				continue
 			}
@@ -216,7 +215,7 @@ func Bidirect_Left_DFS(
 				}
 
 				newElement := allElement[recipe.Result]
-				if newElement == nil || newElement.IsVisited|| !recipe.Ingredient1.IsVisited || !recipe.Ingredient2.IsVisited || newElement.Tier >= target.Tier {
+				if newElement == nil || newElement.IsVisited || !recipe.Ingredient1.IsVisited || !recipe.Ingredient2.IsVisited || newElement.Tier >= target.Tier {
 					continue
 				}
 
