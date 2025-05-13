@@ -130,7 +130,6 @@ func DFS_Multiple(
 			wg.Add(1)
 			go func(n *ElementNode) {
 				defer wg.Done()
-
 				DFS_Multiple(n, wg, elements, depthChan, barrier)
 				<-sem // release slot
 			}(ing1)

@@ -99,11 +99,13 @@ func serve(jsonBytes []byte) {
 		barrier.Add(1)
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			DFS_Multiple(root, wg, elementMap, depthChan, barrier)
 		}()
 
 		go func() {
 			wg.Wait()
+			fmt.Println("DFS completed")
 			close(depthChan)
 		}()
 
@@ -151,6 +153,7 @@ func serve(jsonBytes []byte) {
 			panic(err)
 		}
 		fmt.Fprintf(w, "data: %s\n\n", finalWrapped)
+		fmt.Println("Final payload sent.")
 		w.(http.Flusher).Flush()
 	})
 
@@ -368,6 +371,8 @@ func serve(jsonBytes []byte) {
 		// root := &ElementNode{Name: elmtName, Tier: 1, Children: []*RecipeNode{}}
 		root := elementMap[elmtName]
 		ch := make(chan int)
+		barrier := &sync.WaitGroup{}
+		barrier.Add(1)
 		go bfs(root, elementMap, allRecipes, val, ch)
 
 		for _ = range ch {
@@ -384,7 +389,8 @@ func serve(jsonBytes []byte) {
 			}
 			wrapped, err := json.Marshal(payload)
 			if err != nil {
-				panic(err)
+				fmt.Println("Error marshalling JSON: ", err)
+				continue
 			}
 			fmt.Fprintf(w, "data: %s\n\n", wrapped)
 			w.(http.Flusher).Flush()

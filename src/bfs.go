@@ -148,7 +148,7 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []*RecipeN
 
 			// 	continue
 			// }
-			
+
 			current.Children = []*RecipeNode{}
 
 			wg.Add(1)
@@ -308,7 +308,7 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []*RecipeN
 					mu.Unlock()
 				}
 			}(current)
-			
+
 		}
 		wg.Wait()
 
@@ -329,7 +329,6 @@ func bfs(root *ElementNode, elements map[string]*ElementNode, recipes []*RecipeN
 	// <-done
 
 	if ch != nil {
-		fmt.Println("DONE")
 		close(ch)
 	}
 }
